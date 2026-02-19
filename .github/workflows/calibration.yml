@@ -13,7 +13,7 @@ on:
 
 jobs:
   calibration-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     
     steps:
     - uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
 
   production-montecarlo:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 60
     
     steps:
