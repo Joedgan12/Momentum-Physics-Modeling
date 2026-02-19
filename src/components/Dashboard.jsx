@@ -41,7 +41,7 @@ function AnimatedNumber({ value, decimals = 1, suffix = '' }) {
   }, [value]);
 
   const raw =
-    typeof display === 'number' ? display.toFixed(decimals) : value?.toFixed?.(decimals) ?? '--';
+    typeof display === 'number' ? display.toFixed(decimals) : (value?.toFixed?.(decimals) ?? '--');
   return (
     <>
       {raw}

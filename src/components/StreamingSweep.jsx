@@ -12,10 +12,10 @@ const riskColor = (level) =>
   level === 'CRITICAL'
     ? 'var(--danger)'
     : level === 'HIGH'
-    ? '#f97316'
-    : level === 'MODERATE'
-    ? 'var(--flare)'
-    : 'var(--plasma)';
+      ? '#f97316'
+      : level === 'MODERATE'
+        ? 'var(--flare)'
+        : 'var(--plasma)';
 const deltaColor = (v) => (v > 0 ? 'var(--plasma)' : v < 0 ? 'var(--danger)' : 'var(--text-muted)');
 const deltaSign = (v) => (v > 0 ? '+' : '');
 
@@ -873,13 +873,13 @@ export default function StreamingSweep({ iterations }) {
                                       background: isTop
                                         ? `rgba(0,229,160,${0.1 + norm * 0.35})`
                                         : isBad
-                                        ? `rgba(239,68,68,${0.1 + (1 - norm) * 0.25})`
-                                        : `rgba(0,200,224,${0.05 + norm * 0.2})`,
+                                          ? `rgba(239,68,68,${0.1 + (1 - norm) * 0.25})`
+                                          : `rgba(0,200,224,${0.05 + norm * 0.2})`,
                                       border: isTop
                                         ? '1px solid rgba(0,229,160,0.4)'
                                         : isBad
-                                        ? '1px solid rgba(239,68,68,0.3)'
-                                        : '1px solid var(--border-subtle)',
+                                          ? '1px solid rgba(239,68,68,0.3)'
+                                          : '1px solid var(--border-subtle)',
                                       borderRadius: '6px',
                                       padding: '8px 6px',
                                       cursor: 'default',
@@ -892,8 +892,8 @@ export default function StreamingSweep({ iterations }) {
                                         color: isTop
                                           ? 'var(--plasma)'
                                           : isBad
-                                          ? 'var(--danger)'
-                                          : 'var(--text-primary)',
+                                            ? 'var(--danger)'
+                                            : 'var(--text-primary)',
                                         fontFamily: 'var(--font-mono)',
                                       }}
                                     >
@@ -973,8 +973,8 @@ export default function StreamingSweep({ iterations }) {
                                 background: isTop
                                   ? 'rgba(0,229,160,0.05)'
                                   : isBad
-                                  ? 'rgba(239,68,68,0.05)'
-                                  : 'transparent',
+                                    ? 'rgba(239,68,68,0.05)'
+                                    : 'transparent',
                               }}
                             >
                               <td>
@@ -984,8 +984,8 @@ export default function StreamingSweep({ iterations }) {
                                     color: isTop
                                       ? 'var(--plasma)'
                                       : isBad
-                                      ? 'var(--danger)'
-                                      : 'var(--text-muted)',
+                                        ? 'var(--danger)'
+                                        : 'var(--text-muted)',
                                   }}
                                 >
                                   #{s.rank}

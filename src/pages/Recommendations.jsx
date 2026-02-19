@@ -54,8 +54,8 @@ export default function Recommendations({ simResults }) {
                       rec.priority === 'HIGH'
                         ? 'var(--danger)'
                         : rec.priority === 'MEDIUM'
-                        ? 'var(--flare)'
-                        : 'var(--plasma)',
+                          ? 'var(--flare)'
+                          : 'var(--plasma)',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -66,8 +66,8 @@ export default function Recommendations({ simResults }) {
                           rec.priority === 'HIGH'
                             ? 'var(--danger)'
                             : rec.priority === 'MEDIUM'
-                            ? 'var(--flare)'
-                            : 'var(--plasma)',
+                              ? 'var(--flare)'
+                              : 'var(--plasma)',
                       }}
                     >
                       <CheckCircle size={18} />
@@ -93,8 +93,8 @@ export default function Recommendations({ simResults }) {
                               rec.priority === 'HIGH'
                                 ? 'var(--danger)'
                                 : rec.priority === 'MEDIUM'
-                                ? 'var(--flare)'
-                                : 'var(--plasma)',
+                                  ? 'var(--flare)'
+                                  : 'var(--plasma)',
                             fontFamily: 'var(--font-mono)',
                           }}
                         >

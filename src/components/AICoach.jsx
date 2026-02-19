@@ -114,8 +114,8 @@ export default function AICoach({ matchState = null, onTacticRecommended = null 
     trainingProgress?.status === 'in_progress' && trainingProgress.total_episodes
       ? (trainingProgress.episode / trainingProgress.total_episodes) * 100
       : trainingStatus === 'trained'
-      ? 100
-      : 0;
+        ? 100
+        : 0;
 
   const statusLabel =
     {
@@ -484,10 +484,10 @@ export default function AICoach({ matchState = null, onTacticRecommended = null 
           {trainingStatus === 'initializing'
             ? 'Initializing tactical engine…'
             : trainingStatus === 'trained'
-            ? !matchState
-              ? 'Run a simulation to enable recommendations'
-              : 'Policy network active · ready for analysis'
-            : 'Train the policy network to unlock AI recommendations'}
+              ? !matchState
+                ? 'Run a simulation to enable recommendations'
+                : 'Policy network active · ready for analysis'
+              : 'Train the policy network to unlock AI recommendations'}
         </div>
       </div>
     </div>

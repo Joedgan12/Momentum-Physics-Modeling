@@ -620,8 +620,8 @@ export default function Playback({ simResults }) {
                       (analytics?.momentum_delta ?? 0) > 0
                         ? 'var(--plasma)'
                         : (analytics?.momentum_delta ?? 0) < 0
-                        ? 'var(--danger)'
-                        : 'var(--text-muted)',
+                          ? 'var(--danger)'
+                          : 'var(--text-muted)',
                   }}
                 >
                   {(analytics?.momentum_delta ?? 0) > 0 ? '+' : ''}

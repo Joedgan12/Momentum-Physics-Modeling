@@ -357,8 +357,8 @@ export default function Counterfactual({ iterations, onIterationsChange }) {
                           scenario.rank <= 3
                             ? '#F0FDF4'
                             : scenario.rank > 13
-                            ? '#FEE2E2'
-                            : '#f9fafb',
+                              ? '#FEE2E2'
+                              : '#f9fafb',
                         borderBottom: '1px solid #e5e7eb',
                       }}
                     >
@@ -397,10 +397,10 @@ export default function Counterfactual({ iterations, onIterationsChange }) {
                             scenario.risk.level === 'LOW'
                               ? '#10B981'
                               : scenario.risk.level === 'MODERATE'
-                              ? '#F59E0B'
-                              : scenario.risk.level === 'HIGH'
-                              ? '#EF4444'
-                              : '#DC2626',
+                                ? '#F59E0B'
+                                : scenario.risk.level === 'HIGH'
+                                  ? '#EF4444'
+                                  : '#DC2626',
                         }}
                       >
                         {scenario.risk.level}
