@@ -1,0 +1,25 @@
+[tool.black]
+line-length = 88
+target-version = ["py312"]
+include = '\\.pyi?$'
+exclude = '''
+/(
+  \.git
+| \.venv
+| build
+| dist
+| node_modules
+| backend/logs
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["backend", "momentum_sim", "scripts"]
+multi_line_output = 3
+include_trailing_comma = true
+
+[tool.ruff]
+line-length = 88
+exclude = ["node_modules", ".git", "__pycache__", "backend/logs"]

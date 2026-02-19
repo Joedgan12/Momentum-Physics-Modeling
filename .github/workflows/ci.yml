@@ -21,13 +21,22 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install Python dependencies (skip TensorFlow)
+      - name: Install Python dependencies & dev tooling (skip TensorFlow)
         run: |
           python -m pip install --upgrade pip
           # remove tensorflow from requirements for CI speed
           grep -v '^tensorflow' backend/requirements.txt > .ci-reqs.txt || true
           python -m pip install -r .ci-reqs.txt
-          python -m pip install pytest requests
+          python -m pip install pytest requests pre-commit black ruff isort
+
+      - name: Run Python linters / pre-commit
+        run: |
+          python -m pip show pre-commit || python -m pip install pre-commit
+          pre-commit run --all-files
+
+      - name: Run pytest
+        run: |
+          python -m pytest -q
 
       - name: Start backend (background)
         run: |
@@ -56,7 +65,9 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install & build
+      - name: Install, lint & build
         run: |
           npm ci
+          npm run lint
+          npm run format:check
           npm run build
