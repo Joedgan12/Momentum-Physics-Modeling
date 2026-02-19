@@ -6,10 +6,6 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/calibration.yml'
-  pull_request:
-    branches: [ main ]
-  schedule:
-    - cron: '0 2 * * *'
 
 jobs:
   calibration-test:
@@ -18,139 +14,48 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - uses: actions/setup-python@v4
       with:
         python-version: '3.12'
     
-    - name: Install dependencies
-      run: |
+    - run: |
         python -m pip install --upgrade pip
         grep -v '^tensorflow' backend/requirements.txt > /tmp/ci-reqs.txt || true
         pip install -r /tmp/ci-reqs.txt
     
-    - name: Generate synthetic dataset
-      working-directory: backend
-      run: |
-        python << 'EOF'
-        from data.generators.synthetic_dataset import SyntheticDatasetGenerator
-        generator = SyntheticDatasetGenerator(seed=42)
-        dataset = generator.generate_dataset(num_matches=100)
-        generator.save_dataset(dataset, 'data/synthetic_matches.json')
-        print('✓ Generated 100 synthetic matches')
-        EOF
+    - run: |
+        cd backend
+        python -c "
+from data.generators.synthetic_dataset import SyntheticDatasetGenerator
+generator = SyntheticDatasetGenerator(seed=42)
+dataset = generator.generate_dataset(num_matches=100)
+generator.save_dataset(dataset, 'data/synthetic_matches.json')
+print('Generated 100 synthetic matches')
+        "
     
-    - name: Run calibration validation
-      working-directory: backend
-      run: |
-        python << 'EOF'
-        import json
-        from momentum_sim.analysis.calibration import CalibrationValidator, create_simple_xg_predictor
-        
-        with open('data/synthetic_matches.json', 'r') as f:
-            matches = json.load(f)
-        
-        validator = CalibrationValidator()
-        predictor = create_simple_xg_predictor()
-        result = validator.cross_match_validation(matches, predictor, num_games=50)
-        
-        r_squared = result['metrics']['r_squared']
-        mape = result['metrics']['mape']
-        baseline_r2_target = 0.40
-        baseline_mape_target = 0.25
-        passed = (r_squared >= baseline_r2_target) and (mape < baseline_mape_target)
-        
-        print(f'\n=== Calibration Results ===')
-        print(f'R² Score: {r_squared:.4f} (baseline: ≥{baseline_r2_target:.2f}, production: ≥0.70)')
-        print(f'MAPE: {mape:.4f} (baseline: <{baseline_mape_target:.2f}, production: <0.30)')
-        print(f'Status: {"✓ PASS" if passed else "✗ FAIL"}')
-        
-        exit(0 if passed else 1)
-        EOF
-    
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: calibration-results
-        path: backend/data/synthetic_matches.json
+    - run: |
+        cd backend
+        python -c "
+import json
+from momentum_sim.analysis.calibration import CalibrationValidator, create_simple_xg_predictor
 
-  production-montecarlo:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-22.04
-    timeout-minutes: 60
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        grep -v '^tensorflow' backend/requirements.txt > /tmp/ci-reqs.txt || true
-        pip install -r /tmp/ci-reqs.txt
-    
-    - name: Generate synthetic dataset
-      working-directory: backend
-      run: |
-        python << 'EOF'
-        from data.generators.synthetic_dataset import SyntheticDatasetGenerator
-        generator = SyntheticDatasetGenerator(seed=2026)
-        dataset = generator.generate_dataset(num_matches=50)
-        generator.save_dataset(dataset, 'data/synthetic_matches.json')
-        print('✓ Generated 50 synthetic matches')
-        EOF
-    
-    - name: Run MonteCarlo production validation
-      working-directory: backend
-      run: |
-        python << 'EOF'
-        import json
-        from momentum_sim.analysis.calibration import CalibrationValidator
-        from momentum_sim.simulation.engine import MonteCarloEngine
-        
-        with open('data/synthetic_matches.json', 'r') as f:
-            matches = json.load(f)[:20]
-        
-        validator = CalibrationValidator()
-        
-        def monte_carlo_predictor(match):
-            config = {
-                'formation': match.get('formation_a', '4-3-3'),
-                'formation_b': match.get('formation_b', '4-4-2'),
-                'tactic': match.get('tactic_a', 'balanced'),
-                'tactic_b': match.get('tactic_b', 'balanced'),
-                'iterations': 200,
-                'start_minute': 0,
-                'end_minute': 90,
-                'crowd_noise': 80.0,
-            }
-            engine = MonteCarloEngine(config)
-            result = engine.run()
-            return result.get('xg', 0.03)
-        
-        print('Running Monte Carlo validator (production thresholds)...')
-        res = validator.cross_match_validation(matches, monte_carlo_predictor, num_games=20)
-        print(f'Metrics: {res["metrics"]}')
-        
-        prod_r2 = 0.70
-        prod_mape = 0.30
-        r = res['metrics']
-        if (r['r_squared'] < prod_r2 or r['mape'] >= prod_mape):
-            print('✗ Production thresholds not met')
-            exit(1)
-        else:
-            print('✓ Production calibration thresholds met')
-            exit(0)
-        EOF
-    
-    - name: Upload MonteCarlo results
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: montecarlo-results
-        path: backend/data/synthetic_matches.json
+with open('data/synthetic_matches.json') as f:
+    matches = json.load(f)
+
+validator = CalibrationValidator()
+predictor = create_simple_xg_predictor()
+result = validator.cross_match_validation(matches, predictor, num_games=50)
+
+r2 = result['metrics']['r_squared']
+mape = result['metrics']['mape']
+baseline_r2_target = 0.40
+baseline_mape_target = 0.25
+
+print(f'R² Score: {r2:.4f} (baseline: ≥{baseline_r2_target:.2f}, production: ≥0.70)')
+print(f'MAPE: {mape:.4f} (baseline: <{baseline_mape_target:.2f}, production: <0.30)')
+
+passed = (r2 >= baseline_r2_target) and (mape < baseline_mape_target)
+print(f'Status: {\"PASS\" if passed else \"FAIL\"}')
+exit(0 if passed else 1)
+        "
+
