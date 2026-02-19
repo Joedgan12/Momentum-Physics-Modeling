@@ -1,5 +1,17 @@
-import React, { useState, useEffect } from 'react'
-import { ChevronDown, Moon, Sun, Volume2, Eye, Palette, Bell, Zap, Save, RotateCcw, X } from 'lucide-react'
+import React, { useState, useEffect } from 'react';
+import {
+  ChevronDown,
+  Moon,
+  Sun,
+  Volume2,
+  Eye,
+  Palette,
+  Bell,
+  Zap,
+  Save,
+  RotateCcw,
+  X,
+} from 'lucide-react';
 
 export default function Settings({ onClose }) {
   const [settings, setSettings] = useState({
@@ -17,36 +29,36 @@ export default function Settings({ onClose }) {
     pitchGridOverlay: false,
     playerHeatmaps: true,
     animationSpeed: 'normal', // 'slow', 'normal', 'fast'
-  })
+  });
 
   // Load settings from localStorage on mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem('simulationSettings')
+    const savedSettings = localStorage.getItem('simulationSettings');
     if (savedSettings) {
       try {
-        setSettings(JSON.parse(savedSettings))
+        setSettings(JSON.parse(savedSettings));
       } catch (e) {
-        console.error('Failed to load settings:', e)
+        console.error('Failed to load settings:', e);
       }
     }
-  }, [])
+  }, []);
 
   const handleSettingChange = (key, value) => {
-    setSettings(prev => ({
+    setSettings((prev) => ({
       ...prev,
-      [key]: value
-    }))
-  }
+      [key]: value,
+    }));
+  };
 
   const handleSave = () => {
     try {
-      localStorage.setItem('simulationSettings', JSON.stringify(settings))
-      alert('Settings saved successfully!')
+      localStorage.setItem('simulationSettings', JSON.stringify(settings));
+      alert('Settings saved successfully!');
     } catch (e) {
-      console.error('Failed to save settings:', e)
-      alert('Failed to save settings')
+      console.error('Failed to save settings:', e);
+      alert('Failed to save settings');
     }
-  }
+  };
 
   const handleReset = () => {
     if (window.confirm('Reset all settings to defaults? This cannot be undone.')) {
@@ -65,28 +77,28 @@ export default function Settings({ onClose }) {
         pitchGridOverlay: false,
         playerHeatmaps: true,
         animationSpeed: 'normal',
-      }
-      setSettings(defaults)
-      localStorage.setItem('simulationSettings', JSON.stringify(defaults))
-      applyTheme(defaults.theme)
-      alert('Settings reset to defaults')
+      };
+      setSettings(defaults);
+      localStorage.setItem('simulationSettings', JSON.stringify(defaults));
+      applyTheme(defaults.theme);
+      alert('Settings reset to defaults');
     }
-  }
+  };
 
   // Apply theme changes immediately
   const applyTheme = (themeValue) => {
-    const root = document.documentElement
+    const root = document.documentElement;
     if (themeValue === 'light') {
-      root.classList.add('light-theme')
+      root.classList.add('light-theme');
     } else {
-      root.classList.remove('light-theme')
+      root.classList.remove('light-theme');
     }
-  }
+  };
 
   // Apply theme on settings change
   useEffect(() => {
-    applyTheme(settings.theme)
-  }, [settings.theme])
+    applyTheme(settings.theme);
+  }, [settings.theme]);
 
   return (
     <div className="page-container">
@@ -111,12 +123,12 @@ export default function Settings({ onClose }) {
             zIndex: 100,
           }}
           onMouseEnter={(e) => {
-            e.target.style.background = 'var(--surface-2)'
-            e.target.style.color = 'var(--text-primary)'
+            e.target.style.background = 'var(--surface-2)';
+            e.target.style.color = 'var(--text-primary)';
           }}
           onMouseLeave={(e) => {
-            e.target.style.background = 'transparent'
-            e.target.style.color = 'var(--text-muted)'
+            e.target.style.background = 'transparent';
+            e.target.style.color = 'var(--text-muted)';
           }}
           title="Close Settings"
         >
@@ -127,7 +139,14 @@ export default function Settings({ onClose }) {
         <div className="command-header">
           <div className="command-identity" style={{ paddingRight: '50px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span style={{ fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+              <span
+                style={{
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  color: 'var(--text-muted)',
+                }}
+              >
                 ⚙️ Configuration
               </span>
             </div>
@@ -137,15 +156,20 @@ export default function Settings({ onClose }) {
         </div>
 
         {/* Settings Grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
-          gap: '20px',
-          marginBottom: '24px',
-        }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+            gap: '20px',
+            marginBottom: '24px',
+          }}
+        >
           {/* Display Settings */}
           <div className="panel">
-            <div className="section-title" style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700' }}>
+            <div
+              className="section-title"
+              style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700' }}
+            >
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Palette size={16} /> Display
               </span>
@@ -154,7 +178,16 @@ export default function Settings({ onClose }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {/* Theme */}
               <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>
+                <label
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    marginBottom: '6px',
+                    display: 'block',
+                  }}
+                >
                   Theme
                 </label>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -164,8 +197,11 @@ export default function Settings({ onClose }) {
                       flex: 1,
                       padding: '10px',
                       borderRadius: '6px',
-                      border: `2px solid ${settings.theme === 'dark' ? 'var(--plasma)' : 'var(--border-subtle)'}`,
-                      background: settings.theme === 'dark' ? 'rgba(255, 102, 255, 0.1)' : 'transparent',
+                      border: `2px solid ${
+                        settings.theme === 'dark' ? 'var(--plasma)' : 'var(--border-subtle)'
+                      }`,
+                      background:
+                        settings.theme === 'dark' ? 'rgba(255, 102, 255, 0.1)' : 'transparent',
                       color: 'var(--text-primary)',
                       cursor: 'pointer',
                       display: 'flex',
@@ -174,7 +210,7 @@ export default function Settings({ onClose }) {
                       gap: '6px',
                       fontSize: '13px',
                       fontWeight: '600',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
                     }}
                   >
                     <Moon size={14} /> Dark
@@ -185,8 +221,11 @@ export default function Settings({ onClose }) {
                       flex: 1,
                       padding: '10px',
                       borderRadius: '6px',
-                      border: `2px solid ${settings.theme === 'light' ? 'var(--plasma)' : 'var(--border-subtle)'}`,
-                      background: settings.theme === 'light' ? 'rgba(255, 102, 255, 0.1)' : 'transparent',
+                      border: `2px solid ${
+                        settings.theme === 'light' ? 'var(--plasma)' : 'var(--border-subtle)'
+                      }`,
+                      background:
+                        settings.theme === 'light' ? 'rgba(255, 102, 255, 0.1)' : 'transparent',
                       color: 'var(--text-primary)',
                       cursor: 'pointer',
                       display: 'flex',
@@ -195,7 +234,7 @@ export default function Settings({ onClose }) {
                       gap: '6px',
                       fontSize: '13px',
                       fontWeight: '600',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
                     }}
                   >
                     <Sun size={14} /> Light
@@ -205,7 +244,16 @@ export default function Settings({ onClose }) {
 
               {/* Animation Speed */}
               <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>
+                <label
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    marginBottom: '6px',
+                    display: 'block',
+                  }}
+                >
                   Animation Speed
                 </label>
                 <select
@@ -228,7 +276,15 @@ export default function Settings({ onClose }) {
               </div>
 
               {/* Pitch Grid */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={settings.pitchGridOverlay}
@@ -239,7 +295,15 @@ export default function Settings({ onClose }) {
               </label>
 
               {/* Player Heatmaps */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={settings.playerHeatmaps}
@@ -253,7 +317,10 @@ export default function Settings({ onClose }) {
 
           {/* Player Display Settings */}
           <div className="panel">
-            <div className="section-title" style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700' }}>
+            <div
+              className="section-title"
+              style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700' }}
+            >
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Eye size={16} /> Player Display
               </span>
@@ -262,7 +329,16 @@ export default function Settings({ onClose }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {/* Player Names Display */}
               <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>
+                <label
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    marginBottom: '6px',
+                    display: 'block',
+                  }}
+                >
                   Name Format
                 </label>
                 <select
@@ -286,7 +362,16 @@ export default function Settings({ onClose }) {
 
               {/* Name Length on Field */}
               <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>
+                <label
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    marginBottom: '6px',
+                    display: 'block',
+                  }}
+                >
                   On-Field Display Length
                 </label>
                 <select
@@ -309,7 +394,15 @@ export default function Settings({ onClose }) {
               </div>
 
               {/* Show Player Photos */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={settings.showPlayerPhotos}
@@ -320,7 +413,15 @@ export default function Settings({ onClose }) {
               </label>
 
               {/* Highlight Similar Names */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={settings.highlightSimilarNames}
@@ -334,7 +435,10 @@ export default function Settings({ onClose }) {
 
           {/* Audio & Notifications */}
           <div className="panel">
-            <div className="section-title" style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700' }}>
+            <div
+              className="section-title"
+              style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700' }}
+            >
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Bell size={16} /> Notifications & Audio
               </span>
@@ -342,7 +446,15 @@ export default function Settings({ onClose }) {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {/* Notifications */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={settings.notificationsEnabled}
@@ -353,7 +465,15 @@ export default function Settings({ onClose }) {
               </label>
 
               {/* Sound Settings */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={settings.soundEnabled}
@@ -366,7 +486,18 @@ export default function Settings({ onClose }) {
               {/* Sound Volume */}
               {settings.soundEnabled && (
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <label
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      marginBottom: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
                     <Volume2 size={14} /> Volume: {settings.soundVolume}%
                   </label>
                   <input
@@ -384,7 +515,10 @@ export default function Settings({ onClose }) {
 
           {/* Simulation Settings */}
           <div className="panel">
-            <div className="section-title" style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700' }}>
+            <div
+              className="section-title"
+              style={{ marginBottom: '16px', fontSize: '14px', fontWeight: '700' }}
+            >
               <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Zap size={16} /> Simulation
               </span>
@@ -393,7 +527,16 @@ export default function Settings({ onClose }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {/* Simulation Detail Level */}
               <div>
-                <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>
+                <label
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    marginBottom: '6px',
+                    display: 'block',
+                  }}
+                >
                   Detail Level
                 </label>
                 <select
@@ -416,7 +559,15 @@ export default function Settings({ onClose }) {
               </div>
 
               {/* Auto Refresh */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={settings.autoRefresh}
@@ -429,7 +580,16 @@ export default function Settings({ onClose }) {
               {/* Auto Refresh Interval */}
               {settings.autoRefresh && (
                 <div>
-                  <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '6px', display: 'block' }}>
+                  <label
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: 'var(--text-muted)',
+                      textTransform: 'uppercase',
+                      marginBottom: '6px',
+                      display: 'block',
+                    }}
+                  >
                     Refresh Interval: {settings.autoRefreshInterval}s
                   </label>
                   <input
@@ -438,7 +598,9 @@ export default function Settings({ onClose }) {
                     max="120"
                     step="10"
                     value={settings.autoRefreshInterval}
-                    onChange={(e) => handleSettingChange('autoRefreshInterval', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleSettingChange('autoRefreshInterval', parseInt(e.target.value))
+                    }
                     style={{ width: '100%' }}
                   />
                 </div>
@@ -448,13 +610,15 @@ export default function Settings({ onClose }) {
         </div>
 
         {/* Action Buttons */}
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          justifyContent: 'flex-end',
-          paddingTop: '16px',
-          borderTop: '1px solid var(--border-subtle)',
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            gap: '12px',
+            justifyContent: 'flex-end',
+            paddingTop: '16px',
+            borderTop: '1px solid var(--border-subtle)',
+          }}
+        >
           <button
             onClick={handleReset}
             style={{
@@ -472,12 +636,12 @@ export default function Settings({ onClose }) {
               transition: 'all 0.2s',
             }}
             onMouseEnter={(e) => {
-              e.target.style.background = 'var(--surface-2)'
-              e.target.style.borderColor = 'var(--border-low)'
+              e.target.style.background = 'var(--surface-2)';
+              e.target.style.borderColor = 'var(--border-low)';
             }}
             onMouseLeave={(e) => {
-              e.target.style.background = 'transparent'
-              e.target.style.borderColor = 'var(--border-subtle)'
+              e.target.style.background = 'transparent';
+              e.target.style.borderColor = 'var(--border-subtle)';
             }}
           >
             <RotateCcw size={14} /> Reset Defaults
@@ -499,12 +663,12 @@ export default function Settings({ onClose }) {
               transition: 'all 0.2s',
             }}
             onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-2px)'
-              e.target.style.boxShadow = '0 8px 20px rgba(255, 102, 255, 0.3)'
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 8px 20px rgba(255, 102, 255, 0.3)';
             }}
             onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0)'
-              e.target.style.boxShadow = 'none'
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = 'none';
             }}
           >
             <Save size={14} /> Save Settings
@@ -512,5 +676,5 @@ export default function Settings({ onClose }) {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,62 +1,62 @@
-import React, { useState, useCallback, useEffect } from 'react'
-import Sidebar from './components/Sidebar'
-import TopBar from './components/TopBar'
-import Overview from './pages/Overview'
-import Match3D from './pages/Match3D'
-import Players from './pages/Players'
-import Tactics from './pages/Tactics'
-import Formations from './pages/Formations'
-import StreamingSweep from './components/StreamingSweep'
-import Statistics from './pages/Statistics'
-import Search from './pages/Search'
-import CoachReport from './pages/CoachReport'
-import Recommendations from './pages/Recommendations'
-import RiskAnalysis from './pages/RiskAnalysis'
-import Playback from './pages/Playback'
-import Scenarios from './pages/Scenarios'
-import Settings from './pages/Settings'
-import NotificationsModal from './components/NotificationsModal'
-import './App.css'
+import React, { useState, useCallback, useEffect } from 'react';
+import Sidebar from './components/Sidebar';
+import TopBar from './components/TopBar';
+import Overview from './pages/Overview';
+import Match3D from './pages/Match3D';
+import Players from './pages/Players';
+import Tactics from './pages/Tactics';
+import Formations from './pages/Formations';
+import StreamingSweep from './components/StreamingSweep';
+import Statistics from './pages/Statistics';
+import Search from './pages/Search';
+import CoachReport from './pages/CoachReport';
+import Recommendations from './pages/Recommendations';
+import RiskAnalysis from './pages/RiskAnalysis';
+import Playback from './pages/Playback';
+import Scenarios from './pages/Scenarios';
+import Settings from './pages/Settings';
+import NotificationsModal from './components/NotificationsModal';
+import './App.css';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('Dashboard')
-  const [scenario, setScenario] = useState('Baseline')
-  const [simRunning, setSimRunning] = useState(false)
-  const [simResults, setSimResults] = useState(null)
-  const [simError, setSimError] = useState(null)
-  const [selectedFormation, setSelectedFormation] = useState('4-3-3')
-  const [selectedTactic, setSelectedTactic] = useState('balanced')
+  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [scenario, setScenario] = useState('Baseline');
+  const [simRunning, setSimRunning] = useState(false);
+  const [simResults, setSimResults] = useState(null);
+  const [simError, setSimError] = useState(null);
+  const [selectedFormation, setSelectedFormation] = useState('4-3-3');
+  const [selectedTactic, setSelectedTactic] = useState('balanced');
   // New controls: iterations for Monte Carlo and playback speed for 3D viewer
-  const [iterations, setIterations] = useState(500)
-  const [playbackSpeed, setPlaybackSpeed] = useState(1.0)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
+  const [iterations, setIterations] = useState(500);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   // Auto-redirect to Playback after simulation completes
   useEffect(() => {
     if (simResults && !simRunning) {
-      setActiveTab('Simulation')
+      setActiveTab('Simulation');
     }
-  }, [simResults, simRunning])
+  }, [simResults, simRunning]);
 
   // Load and apply theme on app start
   useEffect(() => {
     try {
-      const savedSettings = localStorage.getItem('simulationSettings')
+      const savedSettings = localStorage.getItem('simulationSettings');
       if (savedSettings) {
-        const settings = JSON.parse(savedSettings)
+        const settings = JSON.parse(savedSettings);
         if (settings.theme === 'light') {
-          document.documentElement.classList.add('light-theme')
+          document.documentElement.classList.add('light-theme');
         }
       }
     } catch (e) {
-      console.error('Failed to load theme preference:', e)
+      console.error('Failed to load theme preference:', e);
     }
-  }, [])
+  }, []);
 
   const handleRunSimulation = useCallback(async () => {
-    setSimRunning(true)
-    setSimError(null)
+    setSimRunning(true);
+    setSimError(null);
     try {
       const response = await fetch('/api/simulate', {
         method: 'POST',
@@ -72,24 +72,24 @@ export default function App() {
           end_minute: 90,
           crowd_noise: 80.0,
         }),
-      })
+      });
 
       if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}))
-        throw new Error(errJson.error || `HTTP ${response.status}`)
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP ${response.status}`);
       }
 
-      const json = await response.json()
-      if (!json.ok) throw new Error(json.error || 'Simulation failed')
+      const json = await response.json();
+      if (!json.ok) throw new Error(json.error || 'Simulation failed');
 
-      setSimResults(json.data)
+      setSimResults(json.data);
     } catch (err) {
-      console.error('Simulation error:', err)
-      setSimError(err.message)
+      console.error('Simulation error:', err);
+      setSimError(err.message);
     } finally {
-      setSimRunning(false)
+      setSimRunning(false);
     }
-  }, [selectedFormation, selectedTactic, scenario, iterations])
+  }, [selectedFormation, selectedTactic, scenario, iterations]);
 
   const renderPage = () => {
     switch (activeTab) {
@@ -108,7 +108,7 @@ export default function App() {
             playbackSpeed={playbackSpeed}
             onPlaybackSpeedChange={setPlaybackSpeed}
           />
-        )
+        );
       case 'Match':
         return (
           <Match3D
@@ -117,9 +117,9 @@ export default function App() {
             selectedTactic={selectedTactic}
             playbackSpeed={playbackSpeed}
           />
-        )
+        );
       case 'Players':
-        return <Players simResults={simResults} />
+        return <Players simResults={simResults} />;
       case 'Tactics':
         return (
           <Tactics
@@ -127,7 +127,7 @@ export default function App() {
             onTacticChange={setSelectedTactic}
             simResults={simResults}
           />
-        )
+        );
       case 'Formations':
         return (
           <Formations
@@ -135,7 +135,7 @@ export default function App() {
             onFormationChange={setSelectedFormation}
             simResults={simResults}
           />
-        )
+        );
       case 'Counterfactual':
         return (
           <StreamingSweep
@@ -144,23 +144,23 @@ export default function App() {
             iterations={iterations}
             playbackSpeed={playbackSpeed}
           />
-        )
+        );
       case 'Statistics':
-        return <Statistics simResults={simResults} />
+        return <Statistics simResults={simResults} />;
       case 'Search':
-        return <Search simResults={simResults} />
+        return <Search simResults={simResults} />;
       case 'Coach Report':
-        return <CoachReport simResults={simResults} />
+        return <CoachReport simResults={simResults} />;
       case 'Recommendations':
-        return <Recommendations simResults={simResults} />
+        return <Recommendations simResults={simResults} />;
       case 'Risk Analysis':
-        return <RiskAnalysis simResults={simResults} />
+        return <RiskAnalysis simResults={simResults} />;
       case 'Simulation':
-        return <Playback simResults={simResults} />
+        return <Playback simResults={simResults} />;
       case 'Scenarios':
-        return <Scenarios />
+        return <Scenarios />;
       case 'Settings':
-        return <Settings onClose={() => setShowSettings(false)} />
+        return <Settings onClose={() => setShowSettings(false)} />;
       default:
         return (
           <Overview
@@ -176,9 +176,9 @@ export default function App() {
             playbackSpeed={playbackSpeed}
             onPlaybackSpeedChange={setPlaybackSpeed}
           />
-        )
+        );
     }
-  }
+  };
 
   return (
     <div className="app">
@@ -198,12 +198,12 @@ export default function App() {
             API error: {simError} — ensure the Flask server is running on port 5000.
           </div>
         )}
-        <div className="page-wrapper">
-          {renderPage()}
-        </div>
+        <div className="page-wrapper">{renderPage()}</div>
       </div>
       {showSettings && <Settings onClose={() => setShowSettings(false)} />}
-      {showNotifications && <NotificationsModal simResults={simResults} onClose={() => setShowNotifications(false)} />}
+      {showNotifications && (
+        <NotificationsModal simResults={simResults} onClose={() => setShowNotifications(false)} />
+      )}
     </div>
-  )
+  );
 }

@@ -4,20 +4,20 @@
  * for real-time data collection and Monte Carlo rollout training
  */
 
-import { SimulationEngine } from './SimulationEngine'
-import { getTelemetry } from './Telemetry'
+import { SimulationEngine } from './SimulationEngine';
+import { getTelemetry } from './Telemetry';
 
 export class SimulationEngineWithTelemetry extends SimulationEngine {
   constructor(telemetryOptions = {}) {
-    super()
-    this.telemetry = getTelemetry(telemetryOptions)
+    super();
+    this.telemetry = getTelemetry(telemetryOptions);
   }
 
   /**
    * Override simulateIteration to emit telemetry events
    */
   simulateIteration(config) {
-    const result = super.simulateIteration(config)
+    const result = super.simulateIteration(config);
 
     // Emit match context
     this.telemetry.trackMatchContext({
@@ -27,7 +27,7 @@ export class SimulationEngineWithTelemetry extends SimulationEngine {
       possession: { teamA: 50, teamB: 50 },
       crowdNoise: config.crowdNoise || 75,
       minute: config.minute || 45,
-    })
+    });
 
     // Emit team A player states
     this.players.teamA.forEach((player, idx) => {
@@ -37,8 +37,8 @@ export class SimulationEngineWithTelemetry extends SimulationEngine {
         pmu: result.teamAPMUs[idx],
         fatigue: 0,
         pressure: 0,
-      })
-    })
+      });
+    });
 
     // Emit team B player states
     this.players.teamB.forEach((player, idx) => {
@@ -48,8 +48,8 @@ export class SimulationEngineWithTelemetry extends SimulationEngine {
         pmu: result.teamBPMUs[idx],
         fatigue: 0,
         pressure: 0,
-      })
-    })
+      });
+    });
 
     // Emit ball state
     this.telemetry.trackBallState({
@@ -57,9 +57,9 @@ export class SimulationEngineWithTelemetry extends SimulationEngine {
       velocity: { vx: 0, vy: 0 },
       possession: Math.random() > 0.5 ? 'A' : 'B',
       zone: 'middle_third',
-    })
+    });
 
-    return result
+    return result;
   }
 
   /**
@@ -67,7 +67,7 @@ export class SimulationEngineWithTelemetry extends SimulationEngine {
    */
   async fetchRollouts(config = {}) {
     try {
-      const sessionId = this.telemetry.sessionId
+      const sessionId = this.telemetry.sessionId;
       const response = await fetch('http://localhost:5000/api/rollouts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,21 +79,21 @@ export class SimulationEngineWithTelemetry extends SimulationEngine {
           iterations: config.iterations || 1000,
           forecastMinutes: config.forecastMinutes || 10,
         }),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error(`Rollout failed: ${response.statusText}`)
+        throw new Error(`Rollout failed: ${response.statusText}`);
       }
 
-      const data = await response.json()
+      const data = await response.json();
       if (data.ok) {
-        return data.data
+        return data.data;
       } else {
-        throw new Error(data.error)
+        throw new Error(data.error);
       }
     } catch (err) {
-      console.error('[SimulationEngine] Rollout fetch error:', err)
-      throw err
+      console.error('[SimulationEngine] Rollout fetch error:', err);
+      throw err;
     }
   }
 
@@ -101,6 +101,6 @@ export class SimulationEngineWithTelemetry extends SimulationEngine {
    * Stop telemetry and clean up
    */
   async shutdown() {
-    await this.telemetry.stop()
+    await this.telemetry.stop();
   }
 }

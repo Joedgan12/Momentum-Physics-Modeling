@@ -408,9 +408,7 @@
     "weakness_map": {
       "exploitable_zones": [],
       "fatigue_risk_high_after_minute": 80,
-      "structural_weaknesses": [
-        "None detected"
-      ]
+      "structural_weaknesses": ["None detected"]
     },
     "xg": 0.067
   },

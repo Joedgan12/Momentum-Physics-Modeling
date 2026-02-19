@@ -10,18 +10,20 @@ Action Space: 16 actions (4 formations × 4 tactics)
 Reward: Expected Goals (xG) delta from baseline
 """
 
-import numpy as np
 import json
 import time
-from pathlib import Path
-from typing import Dict, List, Tuple, Any, Optional
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 try:
     import tensorflow as tf
     from tensorflow import keras
     from tensorflow.keras import layers
+
     TF_AVAILABLE = True
 except ImportError:
     TF_AVAILABLE = False
@@ -33,6 +35,7 @@ except ImportError:
 @dataclass
 class TrainingState:
     """Immutable state representing a game moment"""
+
     formation_id: int  # 0-3 (4-3-3, 4-2-3-1, 3-5-2, 5-3-2)
     tactic_id: int  # 0-3 (balanced, aggressive_press, deep_defense, possession)
     possession_pct: float  # 0-100
@@ -46,6 +49,7 @@ class TrainingState:
 @dataclass
 class TrainingTransition:
     """State → Action → Reward transition for training"""
+
     state: TrainingState
     action: int  # 0-15 (action_id = formation_id * 4 + tactic_id)
     reward: float  # xG or goal probability
@@ -57,17 +61,17 @@ class TrainingTransition:
 class TacticalPolicyNetwork:
     """DQN policy network for tactical recommendations"""
 
-    FORMATIONS = ['4-3-3', '4-2-3-1', '3-5-2', '5-3-2']
-    TACTICS = ['balanced', 'aggressive_press', 'deep_defense', 'possession']
+    FORMATIONS = ["4-3-3", "4-2-3-1", "3-5-2", "5-3-2"]
+    TACTICS = ["balanced", "aggressive_press", "deep_defense", "possession"]
     ACTION_COUNT = len(FORMATIONS) * len(TACTICS)  # 16
 
     def __init__(self, learning_rate: float = 0.001):
         self.learning_rate = learning_rate
         self.model = None
-        self.history = {'loss': [], 'val_loss': [], 'accuracy': []}
+        self.history = {"loss": [], "val_loss": [], "accuracy": []}
         self.trained = False
 
-    def build_network(self, input_dim: int = 7) -> Optional['keras.Model']:
+    def build_network(self, input_dim: int = 7) -> Optional["keras.Model"]:
         """
         Build DQN architecture
         Input: [formation_id, tactic_id, possession, fatigue, momentum, opp_formation, opp_tactic]
@@ -82,26 +86,28 @@ class TacticalPolicyNetwork:
         normalized = layers.BatchNormalization()(inputs)
 
         # Dense layers with dropout
-        x = layers.Dense(128, activation='relu')(normalized)
+        x = layers.Dense(128, activation="relu")(normalized)
         x = layers.Dropout(0.3)(x)
-        x = layers.Dense(64, activation='relu')(x)
+        x = layers.Dense(64, activation="relu")(x)
         x = layers.Dropout(0.2)(x)
-        x = layers.Dense(32, activation='relu')(x)
+        x = layers.Dense(32, activation="relu")(x)
 
         # Output: Q-values for each action
-        outputs = layers.Dense(self.ACTION_COUNT, activation='linear')(x)
+        outputs = layers.Dense(self.ACTION_COUNT, activation="linear")(x)
 
         model = keras.Model(inputs=inputs, outputs=outputs)
         model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
-            loss='mse',
-            metrics=['mae', 'mse']
+            loss="mse",
+            metrics=["mae", "mse"],
         )
 
         self.model = model
         return model
 
-    def train_on_batch(self, states: np.ndarray, targets: np.ndarray, batch_size: int = 32) -> float:
+    def train_on_batch(
+        self, states: np.ndarray, targets: np.ndarray, batch_size: int = 32
+    ) -> float:
         """Train on a batch of states and Q-targets"""
         if self.model is None:
             self.build_network()
@@ -112,13 +118,13 @@ class TacticalPolicyNetwork:
             batch_size=batch_size,
             epochs=1,
             verbose=0,
-            validation_split=0.2
+            validation_split=0.2,
         )
 
-        loss = history.history['loss'][0]
-        self.history['loss'].append(loss)
-        if 'val_loss' in history.history:
-            self.history['val_loss'].append(history.history['val_loss'][0])
+        loss = history.history["loss"][0]
+        self.history["loss"].append(loss)
+        if "val_loss" in history.history:
+            self.history["val_loss"].append(history.history["val_loss"][0])
 
         return loss
 
@@ -141,9 +147,9 @@ class TacticalPolicyNetwork:
         formation_id = action_id // len(self.TACTICS)
         tactic_id = action_id % len(self.TACTICS)
         return {
-            'action_id': action_id,
-            'formation': self.FORMATIONS[formation_id],
-            'tactic': self.TACTICS[tactic_id]
+            "action_id": action_id,
+            "formation": self.FORMATIONS[formation_id],
+            "tactic": self.TACTICS[tactic_id],
         }
 
     def save(self, path: str) -> None:
@@ -184,7 +190,7 @@ class PolicyTrainer:
                 momentum_pmu=np.random.uniform(-3, 3),
                 opponent_formation_id=np.random.randint(0, 4),
                 opponent_tactic_id=np.random.randint(0, 4),
-                score_differential=np.random.randint(-2, 3)
+                score_differential=np.random.randint(-2, 3),
             )
             states.append(state)
 
@@ -192,20 +198,26 @@ class PolicyTrainer:
 
     def state_to_vector(self, state: TrainingState) -> np.ndarray:
         """Convert TrainingState to normalized input vector"""
-        vector = np.array([
-            state.formation_id / 3.0,  # Normalize to [0, 1]
-            state.tactic_id / 3.0,
-            state.possession_pct / 100.0,
-            state.team_fatigue / 100.0,
-            (state.momentum_pmu + 5.0) / 10.0,  # Normalize -5 to +5 → 0 to 1
-            state.opponent_formation_id / 3.0,
-            state.opponent_tactic_id / 3.0
-        ], dtype=np.float32)
+        vector = np.array(
+            [
+                state.formation_id / 3.0,  # Normalize to [0, 1]
+                state.tactic_id / 3.0,
+                state.possession_pct / 100.0,
+                state.team_fatigue / 100.0,
+                (state.momentum_pmu + 5.0) / 10.0,  # Normalize -5 to +5 → 0 to 1
+                state.opponent_formation_id / 3.0,
+                state.opponent_tactic_id / 3.0,
+            ],
+            dtype=np.float32,
+        )
         return vector
 
-    def generate_transitions(self, states: List[TrainingState], 
-                            reward_fn=None,
-                            use_coaching_knowledge: bool = True) -> List[TrainingTransition]:
+    def generate_transitions(
+        self,
+        states: List[TrainingState],
+        reward_fn=None,
+        use_coaching_knowledge: bool = True,
+    ) -> List[TrainingTransition]:
         """
         Generate training transitions with assigned rewards
         reward_fn: callable(state, action) → reward value
@@ -215,11 +227,16 @@ class PolicyTrainer:
         coaching_knowledge = None
         if use_coaching_knowledge:
             try:
-                from coaching.coaching_knowledge import get_coach_recommendations_for_state
+                from coaching.coaching_knowledge import (
+                    get_coach_recommendations_for_state,
+                )
+
                 coaching_knowledge = get_coach_recommendations_for_state
             except ImportError:
-                print("Warning: Coaching knowledge not available. Training without coach insights.")
-        
+                print(
+                    "Warning: Coaching knowledge not available. Training without coach insights."
+                )
+
         if reward_fn is None:
             # Enhanced reward function with coaching principles
             def coaching_reward(state, action):
@@ -246,30 +263,43 @@ class PolicyTrainer:
                         possession=state.possession_pct,
                         fatigue=state.team_fatigue,
                         momentum=state.momentum_pmu,
-                        score_differential=state.score_differential
+                        score_differential=state.score_differential,
                     )
-                    
+
                     # Top 3 coaches recommended, reward alignment with their profiles
                     if coach_recs and len(coach_recs) >= 3:
                         top_coaches = [c[0] for c in coach_recs[:3]]
                         # Get coach preference scores
                         try:
-                            from coaching.coaching_knowledge import get_coach_tactical_profile, TACTICS
-                            
+                            from coaching.coaching_knowledge import (
+                                get_coach_tactical_profile,
+                            )
+
                             coach_bonus = 0.0
                             for coach_name in top_coaches:
                                 coach = get_coach_tactical_profile(coach_name)
                                 if coach:
                                     # Reward actions that align with top coaches
-                                    if tactic_id == 1 and coach.pressing_intensity > 0.7:
+                                    if (
+                                        tactic_id == 1
+                                        and coach.pressing_intensity > 0.7
+                                    ):
                                         coach_bonus += 0.05
-                                    elif tactic_id == 3 and coach.possession_preference > 0.7:
+                                    elif (
+                                        tactic_id == 3
+                                        and coach.possession_preference > 0.7
+                                    ):
                                         coach_bonus += 0.05
-                                    elif tactic_id == 0 and 0.4 < coach.pressing_intensity < 0.7:
+                                    elif (
+                                        tactic_id == 0
+                                        and 0.4 < coach.pressing_intensity < 0.7
+                                    ):
                                         coach_bonus += 0.03
-                            
-                            reward += coach_bonus / len(top_coaches) if top_coaches else 0
-                        except Exception as e:
+
+                            reward += (
+                                coach_bonus / len(top_coaches) if top_coaches else 0
+                            )
+                        except Exception:
                             pass  # Silently ignore coaching bonus if unavailable
 
                 return reward
@@ -286,12 +316,18 @@ class PolicyTrainer:
             next_state = TrainingState(
                 formation_id=np.random.randint(0, 4),
                 tactic_id=np.random.randint(0, 4),
-                possession_pct=max(30, min(70, state.possession_pct + np.random.uniform(-5, 5))),
-                team_fatigue=max(20, min(90, state.team_fatigue + np.random.uniform(-2, 2))),
-                momentum_pmu=max(-3, min(3, state.momentum_pmu + np.random.uniform(-0.5, 0.5))),
+                possession_pct=max(
+                    30, min(70, state.possession_pct + np.random.uniform(-5, 5))
+                ),
+                team_fatigue=max(
+                    20, min(90, state.team_fatigue + np.random.uniform(-2, 2))
+                ),
+                momentum_pmu=max(
+                    -3, min(3, state.momentum_pmu + np.random.uniform(-0.5, 0.5))
+                ),
                 opponent_formation_id=state.opponent_formation_id,
                 opponent_tactic_id=state.opponent_tactic_id,
-                score_differential=state.score_differential
+                score_differential=state.score_differential,
             )
 
             transition = TrainingTransition(
@@ -301,17 +337,18 @@ class PolicyTrainer:
                 next_state=next_state,
                 done=False,
                 metadata={
-                    'source': 'coaching_enhanced' if use_coaching_knowledge else 'base',
-                    'coach_informed': coaching_knowledge is not None
-                }
+                    "source": "coaching_enhanced" if use_coaching_knowledge else "base",
+                    "coach_informed": coaching_knowledge is not None,
+                },
             )
             transitions.append(transition)
 
         self.transitions = transitions
         return transitions
 
-    def prepare_training_data(self, transitions: List[TrainingTransition], 
-                              gamma: float = 0.99) -> Tuple[np.ndarray, np.ndarray]:
+    def prepare_training_data(
+        self, transitions: List[TrainingTransition], gamma: float = 0.99
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Prepare training data (states → Q-targets)
         Gamma: discount factor
@@ -350,7 +387,9 @@ class PolicyTrainer:
 
         return np.array(states, dtype=np.float32), np.array(q_targets, dtype=np.float32)
 
-    def train(self, num_episodes: int = 10, states_per_episode: int = 100) -> Dict[str, Any]:
+    def train(
+        self, num_episodes: int = 10, states_per_episode: int = 100
+    ) -> Dict[str, Any]:
         """
         Full training pipeline
         Returns: training metrics
@@ -358,26 +397,24 @@ class PolicyTrainer:
         if not TF_AVAILABLE:
             # Set trained=True for fallback mode to enable recommendations
             self.policy.trained = True
-            print("Info: TensorFlow not installed. Using simulation-based recommendations instead.")
+            print(
+                "Info: TensorFlow not installed. Using simulation-based recommendations instead."
+            )
             return {
-                'status': 'tensorflow_unavailable',
-                'message': 'Using advanced simulation-based tactical analysis instead of ML training.',
-                'episodes': [1],
-                'avg_loss': [0.0],
-                'total_transitions': 1000,
-                'elapsed_seconds': 0.001,
-                'model_params': 0,
-                'fallback_mode': True
+                "status": "tensorflow_unavailable",
+                "message": "Using advanced simulation-based tactical analysis instead of ML training.",
+                "episodes": [1],
+                "avg_loss": [0.0],
+                "total_transitions": 1000,
+                "elapsed_seconds": 0.001,
+                "model_params": 0,
+                "fallback_mode": True,
             }
 
         self.training_started_at = time.time()
         self.policy.build_network()
 
-        metrics = {
-            'episodes': [],
-            'avg_loss': [],
-            'total_transitions': 0
-        }
+        metrics = {"episodes": [], "avg_loss": [], "total_transitions": 0}
 
         for episode in range(num_episodes):
             # Generate new states
@@ -390,15 +427,15 @@ class PolicyTrainer:
             # Train on batch
             loss = self.policy.train_on_batch(state_vectors, q_targets)
 
-            metrics['episodes'].append(episode + 1)
-            metrics['avg_loss'].append(float(loss))
-            metrics['total_transitions'] += len(transitions)
+            metrics["episodes"].append(episode + 1)
+            metrics["avg_loss"].append(float(loss))
+            metrics["total_transitions"] += len(transitions)
 
             self.training_epoch = episode + 1
 
         self.policy.trained = True
-        metrics['elapsed_seconds'] = time.time() - self.training_started_at
-        metrics['model_params'] = self.policy.model.count_params()
+        metrics["elapsed_seconds"] = time.time() - self.training_started_at
+        metrics["model_params"] = self.policy.model.count_params()
 
         return metrics
 
@@ -417,81 +454,93 @@ class PolicyTrainer:
             action_id, q_value = self.policy.predict_action(state_vec)
             action_details = self.policy.get_action_details(action_id)
             confidence = float(np.clip((q_value + 1.0) / 2.0, 0.0, 1.0))
-            reasoning_base = f"ML policy recommendation"
+            reasoning_base = "ML policy recommendation"
         else:
             # Advanced heuristic recommendation system (fallback mode)
             action_id, q_value, confidence = self._get_heuristic_recommendation(state)
             action_details = self.policy.get_action_details(action_id)
-            reasoning_base = f"Advanced tactical analysis"
+            reasoning_base = "Advanced tactical analysis"
 
         # Get coach recommendations for this state
         inspired_coaches = []
         advanced_analysis = self._compute_advanced_analysis(state, action_details)
         reasoning = self._generate_reasoning(state, action_details, reasoning_base)
-        
+
         try:
-            from coaching.coaching_knowledge import get_coach_recommendations_for_state, get_coach_tactical_profile
-            
+            from coaching.coaching_knowledge import (
+                get_coach_recommendations_for_state,
+                get_coach_tactical_profile,
+            )
+
             coach_recs = get_coach_recommendations_for_state(
                 possession=state.possession_pct,
                 fatigue=state.team_fatigue,
                 momentum=state.momentum_pmu,
-                score_differential=state.score_differential
+                score_differential=state.score_differential,
             )
-            
+
             # Get top 3 coaches whose tactics align
             if coach_recs:
                 top_coaches = coach_recs[:3]
                 inspired_coaches = [
                     {
-                        'name': coach_name,
-                        'alignment_score': float(score),
-                        'primary_formation': get_coach_tactical_profile(coach_name).primary_formation
-                            if get_coach_tactical_profile(coach_name) else 'N/A'
+                        "name": coach_name,
+                        "alignment_score": float(score),
+                        "primary_formation": get_coach_tactical_profile(
+                            coach_name
+                        ).primary_formation
+                        if get_coach_tactical_profile(coach_name)
+                        else "N/A",
                     }
                     for coach_name, score in top_coaches
                 ]
-                
+
                 # Update reasoning with coach inspiration
-                coach_names = [c['name'] for c in inspired_coaches]
-                reasoning = f"Inspired by: {', '.join(coach_names[:2])}. " \
-                           f"Recommends {action_details['tactic']} approach for " \
-                           f"{state.possession_pct:.1f}% possession, {state.team_fatigue:.1f}% fatigue, " \
-                           f"{state.momentum_pmu:+.1f} momentum."
+                coach_names = [c["name"] for c in inspired_coaches]
+                reasoning = (
+                    f"Inspired by: {', '.join(coach_names[:2])}. "
+                    f"Recommends {action_details['tactic']} approach for "
+                    f"{state.possession_pct:.1f}% possession, {state.team_fatigue:.1f}% fatigue, "
+                    f"{state.momentum_pmu:+.1f} momentum."
+                )
         except ImportError:
             pass  # Coaching knowledge not available
-        
+
         return {
-            'action_id': action_details['action_id'],
-            'formation': action_details['formation'],
-            'tactic': action_details['tactic'],
-            'q_value': float(q_value),
-            'confidence': confidence,
-            'reasoning': reasoning,
-            'inspired_coaches': inspired_coaches,
-            'game_state_context': {
-                'possession_pct': state.possession_pct,
-                'team_fatigue': state.team_fatigue,
-                'momentum_pmu': state.momentum_pmu,
-                'score_differential': state.score_differential
+            "action_id": action_details["action_id"],
+            "formation": action_details["formation"],
+            "tactic": action_details["tactic"],
+            "q_value": float(q_value),
+            "confidence": confidence,
+            "reasoning": reasoning,
+            "inspired_coaches": inspired_coaches,
+            "game_state_context": {
+                "possession_pct": state.possession_pct,
+                "team_fatigue": state.team_fatigue,
+                "momentum_pmu": state.momentum_pmu,
+                "score_differential": state.score_differential,
             },
-            'advanced_analysis': advanced_analysis,
-            'model_mode': 'neural_network' if self.policy.model is not None else 'heuristic',
+            "advanced_analysis": advanced_analysis,
+            "model_mode": "neural_network"
+            if self.policy.model is not None
+            else "heuristic",
         }
 
-    def _get_heuristic_recommendation(self, state: TrainingState) -> Tuple[int, float, float]:
+    def _get_heuristic_recommendation(
+        self, state: TrainingState
+    ) -> Tuple[int, float, float]:
         """
         Advanced heuristic recommendation system for when neural network is unavailable
         Returns: (action_id, q_value_estimate, confidence)
         """
         scores = np.zeros(self.policy.ACTION_COUNT)
-        
+
         for action_id in range(self.policy.ACTION_COUNT):
             formation_id = action_id // len(self.policy.TACTICS)
             tactic_id = action_id % len(self.policy.TACTICS)
-            
+
             score = 0.0
-            
+
             # === POSSESSION-BASED TACTICS ===
             if state.possession_pct > 60:  # High possession
                 if tactic_id == 3:  # possession tactic
@@ -510,17 +559,21 @@ class PolicyTrainer:
                     score += 0.3
                 if formation_id == 1:  # 4-2-3-1 (balanced)
                     score += 0.2
-            
+
             # === FATIGUE MANAGEMENT ===
             if state.team_fatigue > 75:
-                if tactic_id == 0 or tactic_id == 2:  # balanced or defensive (less intensive)
+                if (
+                    tactic_id == 0 or tactic_id == 2
+                ):  # balanced or defensive (less intensive)
                     score += 0.3
                 else:
                     score -= 0.2  # Avoid aggressive tactics when fatigued
             elif state.team_fatigue < 40:
-                if tactic_id == 1 or tactic_id == 3:  # pressing or possession (more intensive)
+                if (
+                    tactic_id == 1 or tactic_id == 3
+                ):  # pressing or possession (more intensive)
                     score += 0.3
-            
+
             # === MOMENTUM DYNAMICS ===
             # When we have momentum, be aggressive
             if state.momentum_pmu > 1.0:
@@ -534,7 +587,7 @@ class PolicyTrainer:
                     score += 0.4
                 if tactic_id == 0:  # balanced
                     score += 0.2
-            
+
             # === SCORE DIFFERENTIAL ===
             if state.score_differential > 0:  # Winning
                 if tactic_id == 2:  # deep_defense - protect lead
@@ -546,58 +599,87 @@ class PolicyTrainer:
                     score += 0.35
                 if tactic_id == 3:  # possession - control game
                     score += 0.25
-            
+
             # === OPPONENT FORMATION MATCHING ===
             # Counter-formation advantage (simplified)
             if state.opponent_formation_id == formation_id:
                 score += 0.1  # Same formation can indicate familiarity
-            
+
             # === BASE TACTIC VIABILITY ===
             # tactic_id values affect base score differently
-            base_tactic_bonus = [0.1, 0.15, 0.12, 0.2][tactic_id]  # possession (id=3) slightly favored
+            base_tactic_bonus = [0.1, 0.15, 0.12, 0.2][
+                tactic_id
+            ]  # possession (id=3) slightly favored
             score += base_tactic_bonus
-            
+
             scores[action_id] = score
-        
+
         # Get best action
         best_action = int(np.argmax(scores))
         best_score = float(scores[best_action])
-        
+
         # Normalize score to confidence (0-1 range)
-        confidence = float(np.clip((best_score - np.min(scores)) / (np.max(scores) - np.min(scores) + 0.1), 0.0, 1.0))
-        
+        confidence = float(
+            np.clip(
+                (best_score - np.min(scores)) / (np.max(scores) - np.min(scores) + 0.1),
+                0.0,
+                1.0,
+            )
+        )
+
         return best_action, best_score, confidence
 
-    def _compute_advanced_analysis(self, state: TrainingState, action_details: Dict[str, str]) -> Dict[str, Any]:
+    def _compute_advanced_analysis(
+        self, state: TrainingState, action_details: Dict[str, str]
+    ) -> Dict[str, Any]:
         """
         Compute detailed advanced tactical analysis
         """
         # Possession analysis
-        possession_assessment = "High control" if state.possession_pct > 60 else \
-                               "Limited possession" if state.possession_pct < 40 else \
-                               "Balanced possession"
-        
+        possession_assessment = (
+            "High control"
+            if state.possession_pct > 60
+            else "Limited possession"
+            if state.possession_pct < 40
+            else "Balanced possession"
+        )
+
         # Fatigue risk
-        fatigue_assessment = "Critical - minimize intensity" if state.team_fatigue > 80 else \
-                            "High - monitor substitutions" if state.team_fatigue > 65 else \
-                            "Manageable - tactical flexibility" if state.team_fatigue < 50 else \
-                            "Elevated - consider conservative play"
-        
+        fatigue_assessment = (
+            "Critical - minimize intensity"
+            if state.team_fatigue > 80
+            else "High - monitor substitutions"
+            if state.team_fatigue > 65
+            else "Manageable - tactical flexibility"
+            if state.team_fatigue < 50
+            else "Elevated - consider conservative play"
+        )
+
         # Momentum trend
-        momentum_assessment = "Strong advantage - capitalize" if state.momentum_pmu > 1.5 else \
-                             "Slight advantage - maintain pressure" if state.momentum_pmu > 0.5 else \
-                             "Neutral momentum" if state.momentum_pmu > -0.5 else \
-                             "Slight disadvantage - regroup" if state.momentum_pmu > -1.5 else \
-                             "Critical disadvantage - reset mentality"
-        
+        momentum_assessment = (
+            "Strong advantage - capitalize"
+            if state.momentum_pmu > 1.5
+            else "Slight advantage - maintain pressure"
+            if state.momentum_pmu > 0.5
+            else "Neutral momentum"
+            if state.momentum_pmu > -0.5
+            else "Slight disadvantage - regroup"
+            if state.momentum_pmu > -1.5
+            else "Critical disadvantage - reset mentality"
+        )
+
         # Score context
         if state.score_differential > 0:
-            score_context = f"Winning by {abs(state.score_differential)} goal(s) - protect lead"
+            score_context = (
+                f"Winning by {abs(state.score_differential)} goal(s) - protect lead"
+            )
         elif state.score_differential < 0:
-            score_context = f"Losing by {abs(state.score_differential)} goal(s) - push for goals"
+            score_context = (
+                f"Losing by {abs(state.score_differential)} goal(s) - push for goals"
+            )
         else:
             score_context = "Level game - balanced approach"
-        
+
         # Tactical recommendations
         tactical_priorities = []
         if state.team_fatigue > 70:
@@ -610,79 +692,101 @@ class PolicyTrainer:
             tactical_priorities.append("Create clear-cut chances")
         if state.team_fatigue < 50 and state.possession_pct > 55:
             tactical_priorities.append("Press high up the pitch")
-        
+
         if not tactical_priorities:
             tactical_priorities = ["Maintain current structure", "Control tempo"]
-        
+
         return {
-            'possession': {
-                'value': state.possession_pct,
-                'assessment': possession_assessment,
-                'implication': f"{'Maintain dominance' if state.possession_pct > 60 else 'Focus on efficiency' if state.possession_pct < 40 else 'Balance attacking with defending'}"
+            "possession": {
+                "value": state.possession_pct,
+                "assessment": possession_assessment,
+                "implication": f"{'Maintain dominance' if state.possession_pct > 60 else 'Focus on efficiency' if state.possession_pct < 40 else 'Balance attacking with defending'}",
             },
-            'fatigue': {
-                'value': state.team_fatigue,
-                'assessment': fatigue_assessment,
-                'risk_level': 'critical' if state.team_fatigue > 80 else 'high' if state.team_fatigue > 65 else 'moderate' if state.team_fatigue > 50 else 'low'
+            "fatigue": {
+                "value": state.team_fatigue,
+                "assessment": fatigue_assessment,
+                "risk_level": "critical"
+                if state.team_fatigue > 80
+                else "high"
+                if state.team_fatigue > 65
+                else "moderate"
+                if state.team_fatigue > 50
+                else "low",
             },
-            'momentum': {
-                'value': state.momentum_pmu,
-                'assessment': momentum_assessment,
-                'direction': 'positive' if state.momentum_pmu > 0 else 'negative'
+            "momentum": {
+                "value": state.momentum_pmu,
+                "assessment": momentum_assessment,
+                "direction": "positive" if state.momentum_pmu > 0 else "negative",
             },
-            'score_context': score_context,
-            'tactical_priorities': tactical_priorities,
-            'formation_rationale': f"{action_details['formation']} provides structural advantage in current game state",
-            'tactic_rationale': f"{action_details['tactic'].replace('_', ' ').title()} aligns with possession ({state.possession_pct:.0f}%), fatigue ({state.team_fatigue:.0f}%), and momentum ({state.momentum_pmu:+.1f}) indicators"
+            "score_context": score_context,
+            "tactical_priorities": tactical_priorities,
+            "formation_rationale": f"{action_details['formation']} provides structural advantage in current game state",
+            "tactic_rationale": f"{action_details['tactic'].replace('_', ' ').title()} aligns with possession ({state.possession_pct:.0f}%), fatigue ({state.team_fatigue:.0f}%), and momentum ({state.momentum_pmu:+.1f}) indicators",
         }
 
-    def _generate_reasoning(self, state: TrainingState, action_details: Dict[str, str], base: str) -> str:
+    def _generate_reasoning(
+        self, state: TrainingState, action_details: Dict[str, str], base: str
+    ) -> str:
         """Generate detailed reasoning for the recommendation"""
-        possession_insight = "high possession advantage" if state.possession_pct > 65 else \
-                            "limited possession" if state.possession_pct < 35 else \
-                            "balanced possession"
-        
-        fatigue_factor = "while managing fatigue levels" if state.team_fatigue > 65 else \
-                        "with tactical flexibility" if state.team_fatigue < 40 else \
-                        "at current fitness levels"
-        
-        momentum_factor = "to capitalize on momentum" if state.momentum_pmu > 1.0 else \
-                         "to absorb opponent pressure" if state.momentum_pmu < -1.0 else \
-                         "during neutral momentum"
-        
-        return f"{base}: {action_details['formation']} in {action_details['tactic'].replace('_', ' ')} mode. " \
-               f"Optimal given {possession_insight}, {fatigue_factor}, {momentum_factor}. " \
-               f"Score differential: {state.score_differential:+d}."
+        possession_insight = (
+            "high possession advantage"
+            if state.possession_pct > 65
+            else "limited possession"
+            if state.possession_pct < 35
+            else "balanced possession"
+        )
+
+        fatigue_factor = (
+            "while managing fatigue levels"
+            if state.team_fatigue > 65
+            else "with tactical flexibility"
+            if state.team_fatigue < 40
+            else "at current fitness levels"
+        )
+
+        momentum_factor = (
+            "to capitalize on momentum"
+            if state.momentum_pmu > 1.0
+            else "to absorb opponent pressure"
+            if state.momentum_pmu < -1.0
+            else "during neutral momentum"
+        )
+
+        return (
+            f"{base}: {action_details['formation']} in {action_details['tactic'].replace('_', ' ')} mode. "
+            f"Optimal given {possession_insight}, {fatigue_factor}, {momentum_factor}. "
+            f"Score differential: {state.score_differential:+d}."
+        )
 
     def save_checkpoint(self, path: str) -> None:
         """Save trained policy to checkpoint"""
         checkpoint = {
-            'model_path': str(Path(path) / 'policy_model.h5'),
-            'metadata': {
-                'epochs': self.training_epoch,
-                'trained': self.policy.trained,
-                'timestamp': datetime.now().isoformat()
-            }
+            "model_path": str(Path(path) / "policy_model.h5"),
+            "metadata": {
+                "epochs": self.training_epoch,
+                "trained": self.policy.trained,
+                "timestamp": datetime.now().isoformat(),
+            },
         }
 
         # Save model
         Path(path).mkdir(parents=True, exist_ok=True)
         if self.policy.model is not None:
-            self.policy.save(checkpoint['model_path'])
+            self.policy.save(checkpoint["model_path"])
 
         # Save metadata
-        with open(Path(path) / 'checkpoint.json', 'w') as f:
+        with open(Path(path) / "checkpoint.json", "w") as f:
             json.dump(checkpoint, f, indent=2)
 
     def load_checkpoint(self, path: str) -> None:
         """Load trained policy from checkpoint"""
-        checkpoint_path = Path(path) / 'checkpoint.json'
+        checkpoint_path = Path(path) / "checkpoint.json"
         with open(checkpoint_path) as f:
             checkpoint = json.load(f)
 
-        model_path = checkpoint['model_path']
+        model_path = checkpoint["model_path"]
         self.policy.load(model_path)
-        self.training_epoch = checkpoint['metadata']['epochs']
+        self.training_epoch = checkpoint["metadata"]["epochs"]
 
 
 # Convenience functions for app.py integration
@@ -704,36 +808,43 @@ def train_policy_async(trainer: PolicyTrainer, emit_fn=None) -> Dict[str, Any]:
         metrics = trainer.train(num_episodes=5, states_per_episode=200)
 
         # Check if this is a fallback response (TensorFlow not available)
-        if metrics.get('fallback_mode'):
-            emit_fn('training_fallback', {
-                'status': 'fallback',
-                'message': metrics.get('message', 'Using simulation-based recommendations'),
-                'timestamp': datetime.now().isoformat()
-            })
+        if metrics.get("fallback_mode"):
+            emit_fn(
+                "training_fallback",
+                {
+                    "status": "fallback",
+                    "message": metrics.get(
+                        "message", "Using simulation-based recommendations"
+                    ),
+                    "timestamp": datetime.now().isoformat(),
+                },
+            )
             return {
-                'ok': True,
-                'metrics': metrics,
-                'model_params': 0,
-                'fallback_mode': True
+                "ok": True,
+                "metrics": metrics,
+                "model_params": 0,
+                "fallback_mode": True,
             }
 
         # Normal training flow
-        emit_fn('training_progress', {
-            'episode': 5,
-            'total_episodes': 5,
-            'avg_loss': metrics['avg_loss'][-1] if metrics['avg_loss'] else 0,
-            'status': 'completed'
-        })
+        emit_fn(
+            "training_progress",
+            {
+                "episode": 5,
+                "total_episodes": 5,
+                "avg_loss": metrics["avg_loss"][-1] if metrics["avg_loss"] else 0,
+                "status": "completed",
+            },
+        )
 
         return {
-            'ok': True,
-            'metrics': metrics,
-            'model_params': trainer.policy.model.count_params() if trainer.policy.model else 0
+            "ok": True,
+            "metrics": metrics,
+            "model_params": trainer.policy.model.count_params()
+            if trainer.policy.model
+            else 0,
         }
 
     except Exception as e:
-        emit_fn('training_error', {'error': str(e)})
-        return {
-            'ok': False,
-            'error': str(e)
-        }
+        emit_fn("training_error", {"error": str(e)})
+        return {"ok": False, "error": str(e)}

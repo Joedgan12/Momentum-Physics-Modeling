@@ -1,46 +1,57 @@
-import React, { useState, useEffect } from 'react'
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Camera, Download, FileJson, X } from 'lucide-react'
-import '../styles/Playback.css'
+import React, { useState, useEffect } from 'react';
+import {
+  Play,
+  Pause,
+  SkipBack,
+  SkipForward,
+  Volume2,
+  VolumeX,
+  Camera,
+  Download,
+  FileJson,
+  X,
+} from 'lucide-react';
+import '../styles/Playback.css';
 
 export default function Playback({ simResults }) {
-  const [playbackData, setPlaybackData] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-  const [currentFrame, setCurrentFrame] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [playbackSpeed, setPlaybackSpeed] = useState(1)
-  const [showMomentum, setShowMomentum] = useState(true)
-  const [showPressure, setShowPressure] = useState(true)
-  const [selectedPlayer, setSelectedPlayer] = useState(null)
-  const [matchEvents, setMatchEvents] = useState([])
-  const [snapshots, setSnapshots] = useState([])
-  const [showSnapshots, setShowSnapshots] = useState(false)
-  const [snapshotTitle, setSnapshotTitle] = useState('')
-  const [exporting, setExporting] = useState(false)
+  const [playbackData, setPlaybackData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [showMomentum, setShowMomentum] = useState(true);
+  const [showPressure, setShowPressure] = useState(true);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [matchEvents, setMatchEvents] = useState([]);
+  const [snapshots, setSnapshots] = useState([]);
+  const [showSnapshots, setShowSnapshots] = useState(false);
+  const [snapshotTitle, setSnapshotTitle] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (simResults && simResults.request_id) {
-      fetchPlaybackData()
-      fetchMatchEvents()
+      fetchPlaybackData();
+      fetchMatchEvents();
     }
-  }, [simResults])
+  }, [simResults]);
 
   useEffect(() => {
-    if (!isPlaying || !playbackData) return
+    if (!isPlaying || !playbackData) return;
 
     const interval = setInterval(() => {
       setCurrentFrame((prev) => {
-        const next = prev + 1
+        const next = prev + 1;
         if (next >= playbackData.playback_data.total_frames) {
-          setIsPlaying(false)
-          return 0
+          setIsPlaying(false);
+          return 0;
         }
-        return next
-      })
-    }, 1000 / playbackSpeed)
+        return next;
+      });
+    }, 1000 / playbackSpeed);
 
-    return () => clearInterval(interval)
-  }, [isPlaying, playbackData, playbackSpeed])
+    return () => clearInterval(interval);
+  }, [isPlaying, playbackData, playbackSpeed]);
 
   const fetchMatchEvents = async () => {
     try {
@@ -57,30 +68,30 @@ export default function Playback({ simResults }) {
           end_minute: 90,
           crowd_noise: 80.0,
         }),
-      })
+      });
 
-      if (!response.ok) throw new Error('Failed to fetch match events')
-      const json = await response.json()
-      if (json.ok) setMatchEvents(json.data.match_events)
+      if (!response.ok) throw new Error('Failed to fetch match events');
+      const json = await response.json();
+      if (json.ok) setMatchEvents(json.data.match_events);
     } catch (err) {
-      console.error('Match events error:', err)
+      console.error('Match events error:', err);
     }
-  }
+  };
 
   const handleCreateSnapshot = async () => {
     if (!snapshotTitle.trim()) {
-      alert('Please enter a snapshot title')
-      return
+      alert('Please enter a snapshot title');
+      return;
     }
 
     if (!playbackData?.playback_data?.frames?.[currentFrame]) {
-      alert('No playback data available')
-      return
+      alert('No playback data available');
+      return;
     }
 
-    const currentFrameData = playbackData.playback_data.frames[currentFrame]
-    const simId = simResults.request_id || 'default'
-    
+    const currentFrameData = playbackData.playback_data.frames[currentFrame];
+    const simId = simResults.request_id || 'default';
+
     try {
       const response = await fetch('/api/snapshots', {
         method: 'POST',
@@ -91,35 +102,38 @@ export default function Playback({ simResults }) {
           minute: currentFrameData.minute,
           title: snapshotTitle,
           playback_frame: currentFrameData,
-          match_events: matchEvents.filter(e => e.minute === currentFrameData.minute),
+          match_events: matchEvents.filter((e) => e.minute === currentFrameData.minute),
         }),
-      })
+      });
 
-      if (!response.ok) throw new Error('Snapshot creation failed')
-      const json = await response.json()
-      
+      if (!response.ok) throw new Error('Snapshot creation failed');
+      const json = await response.json();
+
       if (json.ok) {
-        setSnapshots([...snapshots, {
-          id: json.data.snapshot_id,
-          title: snapshotTitle,
-          minute: currentFrameData.minute,
-        }])
-        setSnapshotTitle('')
-        alert(`Snapshot saved: ${snapshotTitle}`)
+        setSnapshots([
+          ...snapshots,
+          {
+            id: json.data.snapshot_id,
+            title: snapshotTitle,
+            minute: currentFrameData.minute,
+          },
+        ]);
+        setSnapshotTitle('');
+        alert(`Snapshot saved: ${snapshotTitle}`);
       }
     } catch (err) {
-      console.error('Snapshot error:', err)
-      alert('Failed to create snapshot')
+      console.error('Snapshot error:', err);
+      alert('Failed to create snapshot');
     }
-  }
+  };
 
   const handleUnityExport = async () => {
     if (!playbackData || !matchEvents) {
-      alert('Playback data not loaded')
-      return
+      alert('Playback data not loaded');
+      return;
     }
 
-    setExporting(true)
+    setExporting(true);
     try {
       const response = await fetch('/api/unity-export', {
         method: 'POST',
@@ -129,37 +143,37 @@ export default function Playback({ simResults }) {
           playback_data: playbackData,
           match_events: matchEvents,
         }),
-      })
+      });
 
-      if (!response.ok) throw new Error('Export failed')
-      const json = await response.json()
-      
+      if (!response.ok) throw new Error('Export failed');
+      const json = await response.json();
+
       if (json.ok) {
         // Download as JSON
-        const unityData = json.data.unity_export
-        const dataStr = JSON.stringify(unityData, null, 2)
-        const blob = new Blob([dataStr], { type: 'application/json' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `unity_export_${new Date().getTime()}.json`
-        document.body.appendChild(link)
-        link.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(link)
-        alert('Unity export successful!')
+        const unityData = json.data.unity_export;
+        const dataStr = JSON.stringify(unityData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `unity_export_${new Date().getTime()}.json`;
+        document.body.appendChild(link);
+        link.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(link);
+        alert('Unity export successful!');
       }
     } catch (err) {
-      console.error('Unity export error:', err)
-      alert('Unity export failed: ' + err.message)
+      console.error('Unity export error:', err);
+      alert('Unity export failed: ' + err.message);
     } finally {
-      setExporting(false)
+      setExporting(false);
     }
-  }
+  };
 
   const fetchPlaybackData = async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
       const response = await fetch('/api/playback-data', {
         method: 'POST',
@@ -168,29 +182,29 @@ export default function Playback({ simResults }) {
           sim_results: simResults,
           time_step: 10,
         }),
-      })
+      });
 
       if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}))
-        throw new Error(errJson.error || `HTTP ${response.status}`)
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `HTTP ${response.status}`);
       }
 
-      const json = await response.json()
-      if (!json.ok) throw new Error(json.error || 'Failed to fetch playback data')
+      const json = await response.json();
+      if (!json.ok) throw new Error(json.error || 'Failed to fetch playback data');
 
-      setPlaybackData(json.data)
-      setCurrentFrame(0)
+      setPlaybackData(json.data);
+      setCurrentFrame(0);
     } catch (err) {
-      console.error('Playback data error:', err)
-      setError(err.message)
+      console.error('Playback data error:', err);
+      setError(err.message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const currentFrameEvents = matchEvents.filter(
-    e => e.minute === (playbackData?.playback_data?.frames[currentFrame]?.minute || 0)
-  )
+    (e) => e.minute === (playbackData?.playback_data?.frames[currentFrame]?.minute || 0),
+  );
 
   if (!simResults) {
     return (
@@ -208,7 +222,7 @@ export default function Playback({ simResults }) {
           <p>No simulation data available. Go to Overview and run a simulation.</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -220,13 +234,23 @@ export default function Playback({ simResults }) {
             <h1>3D Match Playback</h1>
           </div>
         </div>
-        <div className="panel" style={{ borderColor: 'var(--danger)', background: 'var(--risk-dim)' }}>
-          <div style={{ color: 'var(--danger)', fontWeight: '700', fontSize: '12px', fontFamily: 'var(--font-mono)' }}>
+        <div
+          className="panel"
+          style={{ borderColor: 'var(--danger)', background: 'var(--risk-dim)' }}
+        >
+          <div
+            style={{
+              color: 'var(--danger)',
+              fontWeight: '700',
+              fontSize: '12px',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
             ⚠ Error loading playback data: {error}
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (loading) {
@@ -239,12 +263,17 @@ export default function Playback({ simResults }) {
           </div>
         </div>
         <div className="empty-state">
-          <div className="empty-icon" style={{ fontSize: '32px', opacity: 0.6, animation: 'spin 1s linear infinite' }}>⚽</div>
+          <div
+            className="empty-icon"
+            style={{ fontSize: '32px', opacity: 0.6, animation: 'spin 1s linear infinite' }}
+          >
+            ⚽
+          </div>
           <h3>Generating Playback</h3>
           <p>Building frame-by-frame match data...</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (!playbackData || !playbackData.playback_data) {
@@ -262,16 +291,16 @@ export default function Playback({ simResults }) {
           <p>No playback data was generated</p>
         </div>
       </div>
-    )
+    );
   }
 
-  const currentFrameData = playbackData?.playback_data?.frames[currentFrame]
+  const currentFrameData = playbackData?.playback_data?.frames[currentFrame];
   const analytics = playbackData?.analytics || {
     team_a_xg: 0,
     team_b_xg: 0,
     momentum_delta: 0,
-    expected_winner: 'Unknown'
-  }
+    expected_winner: 'Unknown',
+  };
 
   return (
     <div className="playback-page">
@@ -297,27 +326,52 @@ export default function Playback({ simResults }) {
             <rect width="105" height="68" fill="url(#fieldGradient)" />
 
             {/* Field lines */}
-            <rect x="1" y="1" width="103" height="66" fill="none" stroke="#fff" strokeWidth="0.15" />
+            <rect
+              x="1"
+              y="1"
+              width="103"
+              height="66"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="0.15"
+            />
             <circle cx="52.5" cy="34" r="9.15" fill="none" stroke="#fff" strokeWidth="0.15" />
             <circle cx="52.5" cy="34" r="0.5" fill="#fff" />
             <line x1="52.5" y1="1" x2="52.5" y2="67" stroke="#fff" strokeWidth="0.15" />
-            <rect x="5" y="13.84" width="16.5" height="40.32" fill="none" stroke="#fff" strokeWidth="0.15" />
+            <rect
+              x="5"
+              y="13.84"
+              width="16.5"
+              height="40.32"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="0.15"
+            />
             <path d="M 9 34 Q 11 34 11 34" fill="none" stroke="#fff" strokeWidth="0.15" />
-            <rect x="83.5" y="13.84" width="16.5" height="40.32" fill="none" stroke="#fff" strokeWidth="0.15" />
+            <rect
+              x="83.5"
+              y="13.84"
+              width="16.5"
+              height="40.32"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="0.15"
+            />
             <path d="M 96 34 Q 94 34 94 34" fill="none" stroke="#fff" strokeWidth="0.15" />
 
             {/* Pressure zones (if enabled and data exists) */}
-            {showPressure && currentFrameData?.pressure_zones?.map((zone, idx) => (
-              <g key={`pressure-${idx}`}>
-                <circle
-                  cx={zone.x}
-                  cy={zone.y}
-                  r={zone.radius / 7}
-                  fill={zone.team === 'team_a' ? '#667EEA' : '#F093FB'}
-                  opacity={zone.intensity / 300}
-                />
-              </g>
-            ))}
+            {showPressure &&
+              currentFrameData?.pressure_zones?.map((zone, idx) => (
+                <g key={`pressure-${idx}`}>
+                  <circle
+                    cx={zone.x}
+                    cy={zone.y}
+                    r={zone.radius / 7}
+                    fill={zone.team === 'team_a' ? '#667EEA' : '#F093FB'}
+                    opacity={zone.intensity / 300}
+                  />
+                </g>
+              ))}
 
             {/* Team A players */}
             {currentFrameData?.players?.team_a?.map((player) => (
@@ -459,7 +513,9 @@ export default function Playback({ simResults }) {
             </div>
 
             {/* Recording & Export */}
-            <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexDirection: 'column' }}>
+            <div
+              style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexDirection: 'column' }}
+            >
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="text"
@@ -522,7 +578,10 @@ export default function Playback({ simResults }) {
             {/* Speed Control */}
             <div className="speed-control">
               <label>Playback Speed</label>
-              <select value={playbackSpeed} onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}>
+              <select
+                value={playbackSpeed}
+                onChange={(e) => setPlaybackSpeed(parseFloat(e.target.value))}
+              >
                 <option value={0.5}>0.5x</option>
                 <option value={1}>1x</option>
                 <option value={1.5}>1.5x</option>
@@ -565,15 +624,26 @@ export default function Playback({ simResults }) {
               </div>
               <div className="metric-box">
                 <div className="metric-label">Momentum Δ</div>
-                <div className="metric-value" style={{
-                  color: (analytics?.momentum_delta ?? 0) > 0 ? 'var(--plasma)' : (analytics?.momentum_delta ?? 0) < 0 ? 'var(--danger)' : 'var(--text-muted)'
-                }}>
-                  {(analytics?.momentum_delta ?? 0) > 0 ? '+' : ''}{((analytics?.momentum_delta ?? 0).toFixed(2))}
+                <div
+                  className="metric-value"
+                  style={{
+                    color:
+                      (analytics?.momentum_delta ?? 0) > 0
+                        ? 'var(--plasma)'
+                        : (analytics?.momentum_delta ?? 0) < 0
+                        ? 'var(--danger)'
+                        : 'var(--text-muted)',
+                  }}
+                >
+                  {(analytics?.momentum_delta ?? 0) > 0 ? '+' : ''}
+                  {(analytics?.momentum_delta ?? 0).toFixed(2)}
                 </div>
               </div>
               <div className="metric-box">
                 <div className="metric-label">Expected Winner</div>
-                <div className="metric-value" style={{ fontSize: '13px' }}>{analytics?.expected_winner || 'Unknown'}</div>
+                <div className="metric-value" style={{ fontSize: '13px' }}>
+                  {analytics?.expected_winner || 'Unknown'}
+                </div>
               </div>
             </div>
           </div>
@@ -599,7 +669,9 @@ export default function Playback({ simResults }) {
                 </div>
                 <div className="stat">
                   <span className="label">Coordinates</span>
-                  <span className="value">{(selectedPlayer?.x ?? 0).toFixed(1)}, {(selectedPlayer?.y ?? 0).toFixed(1)}</span>
+                  <span className="value">
+                    {(selectedPlayer?.x ?? 0).toFixed(1)}, {(selectedPlayer?.y ?? 0).toFixed(1)}
+                  </span>
                 </div>
               </div>
               <button
@@ -614,17 +686,55 @@ export default function Playback({ simResults }) {
 
           {/* Frame Events */}
           {currentFrameEvents.length > 0 && (
-            <div className="notes-card" style={{ background: 'rgba(245,158,11,0.08)', borderLeftColor: 'var(--flare)' }}>
-              <h4 style={{ color: 'var(--flare)', margin: '0 0 8px 0' }}>Events at {currentFrameData?.minute || 0}'</h4>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', maxHeight: '120px', overflowY: 'auto' }}>
+            <div
+              className="notes-card"
+              style={{ background: 'rgba(245,158,11,0.08)', borderLeftColor: 'var(--flare)' }}
+            >
+              <h4 style={{ color: 'var(--flare)', margin: '0 0 8px 0' }}>
+                Events at {currentFrameData?.minute || 0}'
+              </h4>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--text-secondary)',
+                  maxHeight: '120px',
+                  overflowY: 'auto',
+                }}
+              >
                 {currentFrameEvents.slice(0, 5).map((evt, i) => (
-                  <div key={i} style={{ marginBottom: '4px', paddingBottom: '4px', borderBottom: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '10px' }}>{evt.player_id} — {evt.event_type}</div>
-                    <div style={{ color: 'var(--text-muted)' }}>{evt.action} (impact: {evt.impact})</div>
+                  <div
+                    key={i}
+                    style={{
+                      marginBottom: '4px',
+                      paddingBottom: '4px',
+                      borderBottom: '1px solid var(--border-subtle)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: '700',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '10px',
+                      }}
+                    >
+                      {evt.player_id} — {evt.event_type}
+                    </div>
+                    <div style={{ color: 'var(--text-muted)' }}>
+                      {evt.action} (impact: {evt.impact})
+                    </div>
                   </div>
                 ))}
                 {currentFrameEvents.length > 5 && (
-                  <div style={{ color: 'var(--text-muted)', fontSize: '10px', fontFamily: 'var(--font-mono)' }}>+{currentFrameEvents.length - 5} more events</div>
+                  <div
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '10px',
+                      fontFamily: 'var(--font-mono)',
+                    }}
+                  >
+                    +{currentFrameEvents.length - 5} more events
+                  </div>
                 )}
               </div>
             </div>
@@ -632,7 +742,14 @@ export default function Playback({ simResults }) {
 
           {/* Snapshots */}
           <div className="analytics-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
               <h3 style={{ margin: 0 }}>Snapshots ({snapshots.length})</h3>
               <button
                 onClick={() => setShowSnapshots(!showSnapshots)}
@@ -650,23 +767,52 @@ export default function Playback({ simResults }) {
               </button>
             </div>
             {showSnapshots && snapshots.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '200px', overflowY: 'auto' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                }}
+              >
                 {snapshots.map((snap) => (
-                  <div key={snap.id} style={{
-                    background: 'var(--plasma-dim)',
-                    border: '1px solid var(--border-accent)',
-                    borderRadius: '6px',
-                    padding: '8px',
-                    fontSize: '11px',
-                  }}>
-                    <div style={{ fontWeight: '700', color: 'var(--plasma)', fontFamily: 'var(--font-mono)' }}>{snap.title}</div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '2px' }}>@ {snap.minute}'</div>
+                  <div
+                    key={snap.id}
+                    style={{
+                      background: 'var(--plasma-dim)',
+                      border: '1px solid var(--border-accent)',
+                      borderRadius: '6px',
+                      padding: '8px',
+                      fontSize: '11px',
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: '700',
+                        color: 'var(--plasma)',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      {snap.title}
+                    </div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '2px' }}>
+                      @ {snap.minute}'
+                    </div>
                   </div>
                 ))}
               </div>
             )}
             {snapshots.length === 0 && (
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', padding: '12px', fontFamily: 'var(--font-mono)' }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  textAlign: 'center',
+                  padding: '12px',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
                 No snapshots yet. Use the camera button to save key moments.
               </div>
             )}
@@ -675,12 +821,15 @@ export default function Playback({ simResults }) {
           {/* Integration Notes */}
           <div className="notes-card">
             <h4>Unity Integration</h4>
-            <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}>
-              Click "Unity Export" to download playback data compatible with Unity 3D. Import as JSON to visualize player positions, momentum heatmaps, and overlay tactical analysis.
+            <p
+              style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}
+            >
+              Click "Unity Export" to download playback data compatible with Unity 3D. Import as
+              JSON to visualize player positions, momentum heatmaps, and overlay tactical analysis.
             </p>
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

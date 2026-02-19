@@ -23,84 +23,85 @@ All POST endpoints accept and return JSON.
 CORS is enabled for http://localhost:5173 (Vite dev server).
 """
 
-import sys
+import csv
+import io
+import logging
 import os
+import sys
+import threading
 import time
 import traceback
 import uuid
-import csv
-import io
 from datetime import datetime
-import logging
-import threading
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask, request, jsonify, Response, send_file, g
+from flask import Flask, Response, g, jsonify, request, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 
 # Import middleware
 from middleware import (
     ErrorHandler,
-    setup_rate_limiter,
     RateLimiterConfig,
-    validate_formation,
-    validate_tactic,
-    validate_iterations,
+    ValidationError,
+    setup_rate_limiter,
     validate_crowd_noise,
+    validate_formation,
+    validate_iterations,
     validate_json_request,
     validate_scenario_name,
+    validate_tactic,
     validate_tags,
-    validate_scenario_ids,
-    ValidationError,
 )
 
 try:
-    from reportlab.lib.pagesizes import letter, A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-    from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, KeepTogether
     from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, letter
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import inch
+    from reportlab.platypus import (
+        KeepTogether,
+        PageBreak,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
     REPORTLAB_AVAILABLE = True
 except ImportError:
     REPORTLAB_AVAILABLE = False
 
-from momentum_sim.simulation.engine import (
-    DEFAULT_SQUAD,
-    FORMATION_COHERENCE,
-    TACTIC_MODS,
-    EVENT_BASE_IMPACTS,
-    AgentDecision,
-    EventProcessor,
-    FatigueModel,
-    DecayModel,
-    PressureEngine,
-    CrowdEngine,
-    FormationEngine,
-    MonteCarloEngine,
-    MatchSimulator,
-    build_player,
-    compute_formation_coherence,
+from data.generators.synthetic_dataset import SyntheticDatasetGenerator
+from jobs.streaming import StreamingJobManager, run_streaming_sweep
+from ml.policy_trainer import (
+    TrainingState,
+    create_trainer,
+    train_policy_async,
 )
-
-from momentum_sim.storage import ScenarioStore
 
 from momentum_sim.analysis.calibration import (
     CalibrationValidator,
     create_simple_xg_predictor,
 )
-
-from data.generators.synthetic_dataset import SyntheticDatasetGenerator
-
-from jobs.streaming import StreamingJobManager, run_streaming_sweep
-
-from ml.policy_trainer import (
-    PolicyTrainer,
-    TrainingState,
-    create_trainer,
-    train_policy_async,
+from momentum_sim.simulation.engine import (
+    DEFAULT_SQUAD,
+    EVENT_BASE_IMPACTS,
+    FORMATION_COHERENCE,
+    TACTIC_MODS,
+    CrowdEngine,
+    EventProcessor,
+    FatigueModel,
+    FormationEngine,
+    MatchSimulator,
+    MonteCarloEngine,
+    PressureEngine,
+    build_player,
+    compute_formation_coherence,
 )
+from momentum_sim.storage import ScenarioStore
 
 # ─────────────────────────────────────────────────────────────────────────────
 # APP SETUP
@@ -137,12 +138,15 @@ error_handler = ErrorHandler(app)
 limiter = setup_rate_limiter(app, storage_uri="memory://")
 
 # Initialize SocketIO for streaming
-socketio = SocketIO(app, cors_allowed_origins=["http://localhost:5173", "http://127.0.0.1:5173"])
+socketio = SocketIO(
+    app, cors_allowed_origins=["http://localhost:5173", "http://127.0.0.1:5173"]
+)
 job_manager = StreamingJobManager()
 
 # Initialize policy trainer
 policy_trainer = create_trainer()
 ml_training_job_id = None  # Track current training job
+
 
 # Auto-train policy on startup in background
 def auto_train_policy():
@@ -150,15 +154,21 @@ def auto_train_policy():
     try:
         print("[ML] Starting auto-training of tactical policy...")
         result = train_policy_async(policy_trainer)
-        if result['ok']:
-            print(f"[ML] Policy trained successfully. Mode: {'Neural Network' if not result.get('fallback_mode') else 'Heuristic Fallback'}")
+        if result["ok"]:
+            print(
+                f"[ML] Policy trained successfully. Mode: {'Neural Network' if not result.get('fallback_mode') else 'Heuristic Fallback'}"
+            )
         else:
-            print(f"[ML] Policy training completed with fallback mode enabled")
+            print("[ML] Policy training completed with fallback mode enabled")
     except Exception as e:
-        print(f"[ML] Warning: Auto-training failed: {e}. System will use heuristic recommendations.")
+        print(
+            f"[ML] Warning: Auto-training failed: {e}. System will use heuristic recommendations."
+        )
+
 
 # Start auto-training in background thread (non-blocking)
 import threading as _threading
+
 _training_thread = _threading.Thread(target=auto_train_policy, daemon=True)
 _training_thread.start()
 
@@ -169,7 +179,7 @@ synthetic_matches = []
 try:
     os.makedirs("backend/data", exist_ok=True)
     synthetic_path = "backend/data/synthetic_matches.json"
-    
+
     # Generate if missing
     if not os.path.exists(synthetic_path):
         generator = SyntheticDatasetGenerator(seed=42)
@@ -177,7 +187,7 @@ try:
         generator.save_dataset(synthetic_matches, synthetic_path)
     else:
         synthetic_matches = calibration_validator.load_matches(synthetic_path)
-    
+
 except Exception as e:
     print(f"Warning: Could not load synthetic dataset: {e}")
     synthetic_matches = []
@@ -185,13 +195,16 @@ except Exception as e:
 # Initialize scenario store
 scenario_store = ScenarioStore()
 
-CORS(app, resources={
-    r"/api/*": {
-        "origins": ["http://localhost:5173", "http://127.0.0.1:5173"],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-    }
-})
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": ["http://localhost:5173", "http://127.0.0.1:5173"],
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"],
+        }
+    },
+)
 
 
 def success(data: dict, status: int = 200) -> Response:
@@ -206,11 +219,12 @@ def error(msg: str, status: int = 400) -> Response:
 # ANALYTICAL LAYERS — Compute Decision-Grade Outputs
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def compute_analytical_layers(result: dict, config: dict) -> dict:
     """
     Extend simulation result with tactical impact scores, risk assessments,
     and probabilistic outcome breakdowns for decision-grade analytics.
-    
+
     Returns enhanced result dict with:
       - tactical_impact: Dict of impact scores
       - risk_assessment: Dict of risk metrics
@@ -218,7 +232,7 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
       - recommendations: List of tactical recommendations
       - weakness_map: Structural weaknesses detected
     """
-    
+
     # Extract key metrics from result
     avg_pmu_a = result.get("avgPMU_A", 20.0)
     avg_pmu_b = result.get("avgPMU_B", 20.0)
@@ -227,10 +241,10 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
     xg_a = result.get("xg_a", 0.02)
     xg_b = result.get("xg_b", 0.01)
     outcome_dist = result.get("outcomeDistribution", {})
-    
+
     formation_a = config.get("formation", "4-3-3")
     tactic_a = config.get("tactic", "balanced")
-    
+
     # ─────────────────────────────────────────────────────────────────────────
     # 1. TACTICAL IMPACT SCORES
     # ─────────────────────────────────────────────────────────────────────────
@@ -242,7 +256,7 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
         "defensive": 0.75,
         "possession": 0.95,
     }.get(tactic_a, 1.0)
-    
+
     formation_coherence_vals = {
         "4-3-3": 0.87,
         "4-4-2": 0.84,
@@ -250,22 +264,31 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
         "5-3-2": 0.86,
     }
     coherence = formation_coherence_vals.get(formation_a, 0.85)
-    
+
     # Calculate impact delta from baseline (balanced, 4-3-3)
     adjusted_xg = base_xg * tactic_multiplier * coherence
     xg_delta = adjusted_xg - base_xg
-    
+
     tactical_impact = {
         "xg_impact": round(xg_delta, 3),
         "xg_impact_interpretation": (
-            f"+{xg_delta:.1%} xG increase" if xg_delta > 0
+            f"+{xg_delta:.1%} xG increase"
+            if xg_delta > 0
             else f"{xg_delta:.1%} xG decrease"
         ),
         "defensive_imbalance_score": round(1.0 - coherence, 2),
-        "space_exploitation_rating": "HIGH" if tactic_a == "aggressive" else "MODERATE" if tactic_a == "balanced" else "LOW",
-        "press_vulnerability": "HIGH" if formation_a == "3-5-2" else "MODERATE" if formation_a == "4-4-2" else "LOW",
+        "space_exploitation_rating": "HIGH"
+        if tactic_a == "aggressive"
+        else "MODERATE"
+        if tactic_a == "balanced"
+        else "LOW",
+        "press_vulnerability": "HIGH"
+        if formation_a == "3-5-2"
+        else "MODERATE"
+        if formation_a == "4-4-2"
+        else "LOW",
     }
-    
+
     # ─────────────────────────────────────────────────────────────────────────
     # 2. RISK ASSESSMENT
     # ─────────────────────────────────────────────────────────────────────────
@@ -273,20 +296,23 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
     high_quality_chance = min(goal_prob * 100 * 1.3, 50)
     turnover_risk = 100.0 - (coherence * 100) + (20 if tactic_a == "aggressive" else 0)
     counterattack_exposure = max(outcome_dist.get("teamB_wins", 0.05) * 100, 5)
-    
+
     risk_assessment = {
         "shot_probability": round(shot_probability, 1),
         "high_quality_chance": round(high_quality_chance, 1),
         "turnover_risk": round(turnover_risk, 1),
         "counterattack_exposure": round(counterattack_exposure, 1),
         "overall_risk_level": (
-            "CRITICAL" if turnover_risk > 60 else
-            "HIGH" if turnover_risk > 40 else
-            "MODERATE" if turnover_risk > 20 else
-            "LOW"
+            "CRITICAL"
+            if turnover_risk > 60
+            else "HIGH"
+            if turnover_risk > 40
+            else "MODERATE"
+            if turnover_risk > 20
+            else "LOW"
         ),
     }
-    
+
     # ─────────────────────────────────────────────────────────────────────────
     # 3. PROBABILITY OUTCOMES (decision outcomes)
     # ─────────────────────────────────────────────────────────────────────────
@@ -298,74 +324,86 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
         "expected_goals_team_b": round(xg_b, 3),
         "momentum_advantage_team_a": round(avg_pmu_a - avg_pmu_b, 2),
     }
-    
+
     # ─────────────────────────────────────────────────────────────────────────
     # 4. RECOMMENDATIONS (tactical insights)
     # ─────────────────────────────────────────────────────────────────────────
     recommendations = []
-    
+
     if tactic_a == "aggressive" and turnover_risk > 50:
-        recommendations.append({
-            "priority": "HIGH",
-            "action": "Reduce aggression or improve defensive shape",
-            "rationale": f"Turnover risk is {turnover_risk:.0f}%",
-        })
-    
+        recommendations.append(
+            {
+                "priority": "HIGH",
+                "action": "Reduce aggression or improve defensive shape",
+                "rationale": f"Turnover risk is {turnover_risk:.0f}%",
+            }
+        )
+
     if formation_a == "3-5-2" and risk_assessment["counterattack_exposure"] > 15:
-        recommendations.append({
-            "priority": "HIGH",
-            "action": "Strengthen central defense or deploy defensive midfielder",
-            "rationale": "5-man midfield exposes back three to counterattacks",
-        })
-    
+        recommendations.append(
+            {
+                "priority": "HIGH",
+                "action": "Strengthen central defense or deploy defensive midfielder",
+                "rationale": "5-man midfield exposes back three to counterattacks",
+            }
+        )
+
     if xg_delta < -0.02:
-        recommendations.append({
-            "priority": "MEDIUM",
-            "action": f"Consider switching to {('aggressive' if tactic_a != 'aggressive' else 'balanced')} tactic",
-            "rationale": f"Current tactic reduces expected goals output by {-xg_delta:.1%}",
-        })
-    
+        recommendations.append(
+            {
+                "priority": "MEDIUM",
+                "action": f"Consider switching to {('aggressive' if tactic_a != 'aggressive' else 'balanced')} tactic",
+                "rationale": f"Current tactic reduces expected goals output by {-xg_delta:.1%}",
+            }
+        )
+
     if probability_outcomes["draw_probability"] > 50:
-        recommendations.append({
-            "priority": "MEDIUM",
-            "action": "Adopt more offensive tactic or formation to break deadlock",
-            "rationale": f"Draw probability is very high ({probability_outcomes['draw_probability']:.0f}%)",
-        })
-    
+        recommendations.append(
+            {
+                "priority": "MEDIUM",
+                "action": "Adopt more offensive tactic or formation to break deadlock",
+                "rationale": f"Draw probability is very high ({probability_outcomes['draw_probability']:.0f}%)",
+            }
+        )
+
     if not recommendations:
-        recommendations.append({
-            "priority": "LOW",
-            "action": "Current tactical setup is balanced",
-            "rationale": "No significant weaknesses detected in simulation",
-        })
-    
+        recommendations.append(
+            {
+                "priority": "LOW",
+                "action": "Current tactical setup is balanced",
+                "rationale": "No significant weaknesses detected in simulation",
+            }
+        )
+
     # ─────────────────────────────────────────────────────────────────────────
     # 5. WEAKNESS MAP (structural vulnerabilities)
     # ─────────────────────────────────────────────────────────────────────────
     weak_points = []
-    
+
     if coherence < 0.85:
         weak_points.append(f"Formation coherence ({coherence:.0%}) below optimal")
-    
+
     if risk_assessment["turnover_risk"] > 40:
         weak_points.append("High ball loss probability in midfield transitions")
-    
+
     if risk_assessment["counterattack_exposure"] > 20:
         weak_points.append("Vulnerable to opponent counterattacks")
-    
+
     if avg_pmu_a - avg_pmu_b < -2.0:
         weak_points.append("Opponent has momentum advantage")
-    
+
     weakness_map = {
         "structural_weaknesses": weak_points if weak_points else ["None detected"],
         "exploitable_zones": (
-            ["Left flank", "Right wing"] if formation_a in ["3-5-2"] else
-            ["Central midfield"] if formation_a == "5-3-2" else
-            []
+            ["Left flank", "Right wing"]
+            if formation_a in ["3-5-2"]
+            else ["Central midfield"]
+            if formation_a == "5-3-2"
+            else []
         ),
         "fatigue_risk_high_after_minute": 70 if tactic_a == "aggressive" else 80,
     }
-    
+
     # ─────────────────────────────────────────────────────────────────────────
     # ASSEMBLE EXTENDED RESULT
     # ─────────────────────────────────────────────────────────────────────────
@@ -374,7 +412,7 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
     result["probability_outcomes"] = probability_outcomes
     result["recommendations"] = recommendations
     result["weakness_map"] = weakness_map
-    
+
     return result
 
 
@@ -382,20 +420,25 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
 # HEALTH
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/health", methods=["GET"])
 def health():
     import numpy as np
-    return success({
-        "status": "ok",
-        "version": "1.0.0",
-        "numpy": np.__version__,
-        "timestamp": time.time(),
-    })
+
+    return success(
+        {
+            "status": "ok",
+            "version": "1.0.0",
+            "numpy": np.__version__,
+            "timestamp": time.time(),
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SQUAD / PLAYERS
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.route("/api/players", methods=["GET"])
 def get_players():
@@ -406,24 +449,27 @@ def get_players():
         if team_filter and row["team"] != team_filter:
             continue
         ps = build_player(row)
-        players.append({
-            "id":              ps.id,
-            "name":            ps.name,
-            "position":        ps.position,
-            "team":            ps.team,
-            "resilience_tier": ps.resilience_tier,
-            "resilience":      round(ps.resilience, 2),
-            "skill":           ps.skill,
-            "speed":           ps.speed,
-            "baseline_energy": round(ps.baseline_energy, 2),
-            "initial_pmu":     round(ps.pmu, 2),
-        })
+        players.append(
+            {
+                "id": ps.id,
+                "name": ps.name,
+                "position": ps.position,
+                "team": ps.team,
+                "resilience_tier": ps.resilience_tier,
+                "resilience": round(ps.resilience, 2),
+                "skill": ps.skill,
+                "speed": ps.speed,
+                "baseline_energy": round(ps.baseline_energy, 2),
+                "initial_pmu": round(ps.pmu, 2),
+            }
+        )
     return success({"players": players, "count": len(players)})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FORMATIONS
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.route("/api/formations", methods=["GET"])
 def get_formations():
@@ -442,22 +488,26 @@ def get_formations():
     if custom_formation:
         try:
             from middleware.validation import validate_formation
+
             validated = validate_formation(custom_formation)
             coherence = compute_formation_coherence(validated)
             custom_result = {"name": validated, "coherence": coherence, "custom": True}
         except Exception as e:
             custom_result = {"error": str(e)}
 
-    return success({
-        "formations": formations,
-        "tactics": tactics,
-        "custom": custom_result,
-    })
+    return success(
+        {
+            "formations": formations,
+            "tactics": tactics,
+            "custom": custom_result,
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN SIMULATION — MONTE CARLO
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.route("/api/simulate", methods=["POST"])
 @limiter.limit(RateLimiterConfig.SIMULATION_LIMIT)
@@ -495,7 +545,7 @@ def simulate():
         end_minute = int(body.get("end_minute", 90))
         crowd_noise = validate_crowd_noise(body.get("crowd_noise", 80.0))
         scenario = body.get("scenario", "Baseline")
-        
+
     except ValidationError as e:
         error_handler.log_error("ValidationError", str(e))
         return jsonify({"ok": False, "error": str(e)}), 400
@@ -504,25 +554,25 @@ def simulate():
         return jsonify({"ok": False, "error": "Invalid data types in request"}), 400
 
     config = {
-        "formation":    formation,
-        "formation_b":  formation_b,
-        "tactic":       tactic,
-        "tactic_b":     tactic_b,
-        "scenario":     scenario,
-        "iterations":   iterations,
+        "formation": formation,
+        "formation_b": formation_b,
+        "tactic": tactic,
+        "tactic_b": tactic_b,
+        "scenario": scenario,
+        "iterations": iterations,
         "start_minute": start_minute,
-        "end_minute":   end_minute,
-        "crowd_noise":  crowd_noise,
+        "end_minute": end_minute,
+        "crowd_noise": crowd_noise,
     }
 
     try:
         t0 = time.time()
         engine = MonteCarloEngine(config)
         result = engine.run()
-        
+
         # Compute decision-grade analytical layers
         result = compute_analytical_layers(result, config)
-        
+
         elapsed = round(time.time() - t0, 3)
         result["elapsed_seconds"] = elapsed
         result["request_id"] = g.request_id  # Use request ID from error handler
@@ -537,6 +587,7 @@ def simulate():
 # COUNTERFACTUAL SWEEP — Rank all formation/tactic combinations
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/sweep", methods=["POST"])
 @limiter.limit(RateLimiterConfig.SWEEP_LIMIT)
 @validate_json_request(required_fields=[])
@@ -544,7 +595,7 @@ def sweep_scenarios():
     """
     Systematically test all formation × tactic combinations.
     Rank by key metrics to answer: "If we switch to X formation with Y tactic, what unfolds?"
-    
+
     Request body:
       {
         "formation_b": "4-4-2",           # Opponent formation (fixed)
@@ -556,12 +607,12 @@ def sweep_scenarios():
         "crowd_noise": 80.0,
         "rank_by": "xg"                   # Ranking metric: 'xg', 'goal_prob', 'momentum', 'risk' (default 'xg')
       }
-    
+
     Response:
       Ranked list of all 16 formation/tactic combinations with deltas from baseline (4-3-3 + balanced)
     """
     body = request.validated_data
-    
+
     try:
         # Validate inputs
         iterations = validate_iterations(body.get("iterations", 100))
@@ -572,89 +623,101 @@ def sweep_scenarios():
         end_minute = int(body.get("end_minute", 90))
         crowd_noise = validate_crowd_noise(body.get("crowd_noise", 80.0))
         rank_by = body.get("rank_by", "xg").lower()
-        
+
         # Limit iterations per combo for sweep
         if iterations > 300:
             iterations = 300
-        
+
         # Validate rank_by
         valid_rank_metrics = ["xg", "goal_prob", "momentum", "risk"]
         if rank_by not in valid_rank_metrics:
             rank_by = "xg"
-        
+
     except ValidationError as e:
         error_handler.log_error("ValidationError", str(e))
         return jsonify({"ok": False, "error": str(e)}), 400
     except (ValueError, TypeError) as e:
         error_handler.log_error("DataError", str(e))
         return jsonify({"ok": False, "error": "Invalid data types in request"}), 400
-    
+
     # Available options
     formations = ["4-3-3", "4-4-2", "3-5-2", "5-3-2"]
     tactics = ["aggressive", "balanced", "defensive", "possession"]
-    
+
     try:
         t0 = time.time()
         results = {}
         baseline_result = None
-        
+
         # Run each combination
         total_combos = len(formations) * len(tactics)
         combo_idx = 0
-        
+
         for formation in formations:
             for tactic in tactics:
                 combo_idx += 1
                 config = {
-                    "formation":    formation,
-                    "formation_b":  formation_b,
-                    "tactic":       tactic,
-                    "tactic_b":     tactic_b,
-                    "scenario":     scenario,
-                    "iterations":   iterations,
+                    "formation": formation,
+                    "formation_b": formation_b,
+                    "tactic": tactic,
+                    "tactic_b": tactic_b,
+                    "scenario": scenario,
+                    "iterations": iterations,
                     "start_minute": start_minute,
-                    "end_minute":   end_minute,
-                    "crowd_noise":  crowd_noise,
+                    "end_minute": end_minute,
+                    "crowd_noise": crowd_noise,
                 }
-                
+
                 engine = MonteCarloEngine(config)
                 result = engine.run()
-                
+
                 # Compute analytical layers
                 result = compute_analytical_layers(result, config)
-                
+
                 combo_key = f"{formation}_{tactic}"
                 results[combo_key] = result
-                
+
                 # Track baseline (4-3-3 + balanced)
                 if formation == "4-3-3" and tactic == "balanced":
                     baseline_result = result
-        
+
         # Rank scenarios
         ranked = []
         baseline_xg = baseline_result.get("xg", 0.03) if baseline_result else 0.03
-        baseline_goal_prob = baseline_result.get("goalProbability", 0.01) if baseline_result else 0.01
-        baseline_momentum = baseline_result.get("avgPMU_A", 20.0) if baseline_result else 20.0
-        baseline_risk = baseline_result.get("risk_assessment", {}).get("overall_risk_level", "MODERATE") if baseline_result else "MODERATE"
-        
+        baseline_goal_prob = (
+            baseline_result.get("goalProbability", 0.01) if baseline_result else 0.01
+        )
+        baseline_momentum = (
+            baseline_result.get("avgPMU_A", 20.0) if baseline_result else 20.0
+        )
+        baseline_risk = (
+            baseline_result.get("risk_assessment", {}).get(
+                "overall_risk_level", "MODERATE"
+            )
+            if baseline_result
+            else "MODERATE"
+        )
+
         risk_level_order = {"LOW": 0, "MODERATE": 1, "HIGH": 2, "CRITICAL": 3}
         baseline_risk_score = risk_level_order.get(baseline_risk, 1)
-        
+
         for combo_key, result in results.items():
             formation, tactic = combo_key.split("_")
-            
+
             xg_val = result.get("xg", 0.03)
             goal_prob = result.get("goalProbability", 0.01)
             momentum = result.get("avgPMU_A", 20.0)
-            risk_level = result.get("risk_assessment", {}).get("overall_risk_level", "MODERATE")
+            risk_level = result.get("risk_assessment", {}).get(
+                "overall_risk_level", "MODERATE"
+            )
             risk_score = risk_level_order.get(risk_level, 1)
-            
+
             # Compute deltas
             xg_delta = xg_val - baseline_xg
             goal_prob_delta = goal_prob - baseline_goal_prob
             momentum_delta = momentum - baseline_momentum
             risk_delta = risk_score - baseline_risk_score  # negative is better
-            
+
             # Scoring (higher is better)
             scoring = {
                 "xg": xg_delta,
@@ -662,66 +725,82 @@ def sweep_scenarios():
                 "momentum": momentum_delta,
                 "risk": -risk_delta,  # negative risk is good
             }
-            
+
             score = scoring.get(rank_by, xg_delta)
-            
-            ranked.append({
-                "rank": 0,  # Will assign after sort
-                "formation": formation,
-                "tactic": tactic,
-                "combo": combo_key,
-                "score": round(score, 4),
-                "metrics": {
-                    "xg": round(xg_val, 3),
-                    "xg_delta": round(xg_delta, 3),
-                    "goal_probability": round(goal_prob, 4),
-                    "goal_prob_delta": round(goal_prob_delta, 4),
-                    "momentum_pmu": round(momentum, 2),
-                    "momentum_delta": round(momentum_delta, 2),
-                    "outcome_distribution": result.get("outcomeDistribution", {}),
-                },
-                "risk": {
-                    "level": risk_level,
-                    "shot_probability": round(result.get("risk_assessment", {}).get("shot_probability", 0), 1),
-                    "turnover_risk": round(result.get("risk_assessment", {}).get("turnover_risk", 0), 1),
-                    "counterattack_exposure": round(result.get("risk_assessment", {}).get("counterattack_exposure", 0), 1),
-                },
-                "recommendations": result.get("recommendations", []),
-            })
-        
+
+            ranked.append(
+                {
+                    "rank": 0,  # Will assign after sort
+                    "formation": formation,
+                    "tactic": tactic,
+                    "combo": combo_key,
+                    "score": round(score, 4),
+                    "metrics": {
+                        "xg": round(xg_val, 3),
+                        "xg_delta": round(xg_delta, 3),
+                        "goal_probability": round(goal_prob, 4),
+                        "goal_prob_delta": round(goal_prob_delta, 4),
+                        "momentum_pmu": round(momentum, 2),
+                        "momentum_delta": round(momentum_delta, 2),
+                        "outcome_distribution": result.get("outcomeDistribution", {}),
+                    },
+                    "risk": {
+                        "level": risk_level,
+                        "shot_probability": round(
+                            result.get("risk_assessment", {}).get(
+                                "shot_probability", 0
+                            ),
+                            1,
+                        ),
+                        "turnover_risk": round(
+                            result.get("risk_assessment", {}).get("turnover_risk", 0), 1
+                        ),
+                        "counterattack_exposure": round(
+                            result.get("risk_assessment", {}).get(
+                                "counterattack_exposure", 0
+                            ),
+                            1,
+                        ),
+                    },
+                    "recommendations": result.get("recommendations", []),
+                }
+            )
+
         # Sort by score (higher is better for all metrics)
         ranked.sort(key=lambda x: x["score"], reverse=True)
-        
+
         # Assign ranks
         for idx, scenario in enumerate(ranked):
             scenario["rank"] = idx + 1
-        
+
         # Highlight top 3 and bottom 3
         top_3 = ranked[:3]
         bottom_3 = ranked[-3:]
-        
+
         elapsed = round(time.time() - t0, 2)
-        
-        return success({
-            "scenario_name": scenario,
-            "ranked_scenarios": ranked,
-            "top_3_recommendations": top_3,
-            "concerning_scenarios": bottom_3,
-            "baseline": {
-                "formation": "4-3-3",
-                "tactic": "balanced",
-                "xg": round(baseline_xg, 3),
-                "goal_probability": round(baseline_goal_prob, 4),
-                "momentum": round(baseline_momentum, 2),
-                "risk_level": baseline_risk,
-            },
-            "ranking_metric": rank_by,
-            "total_combinations": total_combos,
-            "iterations_per_combo": iterations,
-            "elapsed_seconds": elapsed,
-            "request_id": g.request_id,
-        })
-    
+
+        return success(
+            {
+                "scenario_name": scenario,
+                "ranked_scenarios": ranked,
+                "top_3_recommendations": top_3,
+                "concerning_scenarios": bottom_3,
+                "baseline": {
+                    "formation": "4-3-3",
+                    "tactic": "balanced",
+                    "xg": round(baseline_xg, 3),
+                    "goal_probability": round(baseline_goal_prob, 4),
+                    "momentum": round(baseline_momentum, 2),
+                    "risk_level": baseline_risk,
+                },
+                "ranking_metric": rank_by,
+                "total_combinations": total_combos,
+                "iterations_per_combo": iterations,
+                "elapsed_seconds": elapsed,
+                "request_id": g.request_id,
+            }
+        )
+
     except Exception as exc:
         traceback.print_exc()
         error_handler.log_error("SweepError", str(exc))
@@ -732,15 +811,16 @@ def sweep_scenarios():
 # STREAMING SWEEP — Real-time progress updates via WebSocket
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/sweep/stream", methods=["POST"])
 @limiter.limit(RateLimiterConfig.SWEEP_LIMIT)
 @validate_json_request(required_fields=[])
 def sweep_scenarios_stream():
     """
     Sweep scenarios with real-time progress streaming via WebSocket.
-    
+
     Returns: job_id for clients to connect and listen for updates
-    
+
     Request body (same as /api/sweep):
       {
         "formation_b": "4-4-2",
@@ -748,14 +828,14 @@ def sweep_scenarios_stream():
         "iterations": 100,
         "rank_by": "xg"
       }
-    
+
     Events emitted:
       sweep_progress — {combo_index, total_combos, current_combo, metrics, progress_percent}
       sweep_complete — {ranked_scenarios, top_3_recommendations}
       sweep_error — {error message}
     """
     body = request.validated_data
-    
+
     try:
         # Validate inputs
         iterations = validate_iterations(body.get("iterations", 100))
@@ -765,36 +845,39 @@ def sweep_scenarios_stream():
         end_minute = int(body.get("end_minute", 90))
         crowd_noise = validate_crowd_noise(body.get("crowd_noise", 80.0))
         rank_by = body.get("rank_by", "xg").lower()
-        
+
         if iterations > 300:
             iterations = 300
-        
+
         valid_rank_metrics = ["xg", "goal_prob", "momentum", "risk"]
         if rank_by not in valid_rank_metrics:
             rank_by = "xg"
-    
+
     except ValidationError as e:
         error_handler.log_error("ValidationError", str(e))
         return jsonify({"ok": False, "error": str(e)}), 400
     except (ValueError, TypeError) as e:
         error_handler.log_error("DataError", str(e))
         return jsonify({"ok": False, "error": "Invalid data types in request"}), 400
-    
+
     # Create job
-    job_id = job_manager.create_job("sweep", {
-        "formation_b": formation_b,
-        "tactic_b": tactic_b,
-        "iterations": iterations,
-        "start_minute": start_minute,
-        "end_minute": end_minute,
-        "crowd_noise": crowd_noise,
-        "rank_by": rank_by,
-    })
-    
+    job_id = job_manager.create_job(
+        "sweep",
+        {
+            "formation_b": formation_b,
+            "tactic_b": tactic_b,
+            "iterations": iterations,
+            "start_minute": start_minute,
+            "end_minute": end_minute,
+            "crowd_noise": crowd_noise,
+            "rank_by": rank_by,
+        },
+    )
+
     # Start background thread
     formations = ["4-3-3", "4-4-2", "3-5-2", "5-3-2"]
     tactics = ["aggressive", "balanced", "defensive", "possession"]
-    
+
     thread = threading.Thread(
         target=run_streaming_sweep,
         args=(
@@ -812,24 +895,26 @@ def sweep_scenarios_stream():
             lambda cfg: MonteCarloEngine(cfg).run(),
             compute_analytical_layers,
         ),
-        daemon=True
+        daemon=True,
     )
     thread.start()
-    
-    return success({
-        "job_id": job_id,
-        "message": "Sweep started. Listen on WebSocket for progress.",
-    })
+
+    return success(
+        {
+            "job_id": job_id,
+            "message": "Sweep started. Listen on WebSocket for progress.",
+        }
+    )
 
 
 @app.route("/api/sweep/job/<job_id>", methods=["GET"])
 def get_sweep_job_status(job_id):
     """Get status of a streaming sweep job."""
     status = job_manager.get_job_status(job_id)
-    
+
     if status is None:
         return error("Job not found", 404)
-    
+
     return success(status)
 
 
@@ -837,14 +922,15 @@ def get_sweep_job_status(job_id):
 # ML POLICY TRAINING — Train DQN for tactical recommendations
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/ml/train", methods=["POST"])
 @limiter.limit("5 per hour")
 def train_ml_policy():
     """
     Start policy training job (async).
-    
+
     Returns: job_id for tracking progress via WebSocket
-    
+
     Request body (optional):
       {
         "num_episodes": 10,
@@ -852,54 +938,65 @@ def train_ml_policy():
       }
     """
     global ml_training_job_id
-    
+
     try:
         job_id = f"ml_train_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
         ml_training_job_id = job_id
-        
+
         # Define WebSocket emit function
         def emit_progress(event_name, data):
-            socketio.emit(event_name, {**data, 'job_id': job_id})
-        
+            socketio.emit(event_name, {**data, "job_id": job_id})
+
         # Start training in background thread
         def train_background():
             try:
-                emit_progress('training_started', {
-                    'status': 'started',
-                    'timestamp': datetime.now().isoformat()
-                })
-                
+                emit_progress(
+                    "training_started",
+                    {"status": "started", "timestamp": datetime.now().isoformat()},
+                )
+
                 # Train with progress callbacks
                 result = train_policy_async(policy_trainer, emit_fn=emit_progress)
-                
-                if result['ok']:
-                    emit_progress('training_completed', {
-                        'status': 'completed',
-                        'metrics': result['metrics'],
-                        'model_params': result['model_params'],
-                        'timestamp': datetime.now().isoformat()
-                    })
+
+                if result["ok"]:
+                    emit_progress(
+                        "training_completed",
+                        {
+                            "status": "completed",
+                            "metrics": result["metrics"],
+                            "model_params": result["model_params"],
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                    )
                 else:
-                    emit_progress('training_error', {
-                        'status': 'error',
-                        'error': result.get('error', 'Unknown error'),
-                        'timestamp': datetime.now().isoformat()
-                    })
+                    emit_progress(
+                        "training_error",
+                        {
+                            "status": "error",
+                            "error": result.get("error", "Unknown error"),
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                    )
             except Exception as e:
-                emit_progress('training_error', {
-                    'status': 'error',
-                    'error': str(e),
-                    'timestamp': datetime.now().isoformat()
-                })
-        
+                emit_progress(
+                    "training_error",
+                    {
+                        "status": "error",
+                        "error": str(e),
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                )
+
         thread = threading.Thread(target=train_background, daemon=True)
         thread.start()
-        
-        return success({
-            "job_id": job_id,
-            "message": "Policy training started. Listen on WebSocket for progress.",
-        })
-    
+
+        return success(
+            {
+                "job_id": job_id,
+                "message": "Policy training started. Listen on WebSocket for progress.",
+            }
+        )
+
     except Exception as e:
         return error(f"Training error: {str(e)}", 500)
 
@@ -910,7 +1007,7 @@ def train_ml_policy():
 def get_ml_recommendations():
     """
     Get AI coach tactical recommendation for a game state.
-    
+
     Request body:
       {
         "game_state": {
@@ -928,10 +1025,10 @@ def get_ml_recommendations():
     try:
         if not policy_trainer.policy.trained:
             return error("Policy not trained. Call /api/ml/train first.", 400)
-        
+
         body = request.validated_data
         game_state_data = body.get("game_state", {})
-        
+
         # Construct TrainingState from request
         game_state = TrainingState(
             formation_id=int(game_state_data.get("formation_id", 0)),
@@ -941,21 +1038,23 @@ def get_ml_recommendations():
             momentum_pmu=float(game_state_data.get("momentum_pmu", 0.0)),
             opponent_formation_id=int(game_state_data.get("opponent_formation_id", 1)),
             opponent_tactic_id=int(game_state_data.get("opponent_tactic_id", 0)),
-            score_differential=int(game_state_data.get("score_differential", 0))
+            score_differential=int(game_state_data.get("score_differential", 0)),
         )
-        
+
         recommendation = policy_trainer.get_recommendation(game_state)
-        
-        return success({
-            "recommendation": recommendation,
-            "game_state": {
-                "possession_pct": game_state.possession_pct,
-                "team_fatigue": game_state.team_fatigue,
-                "momentum_pmu": game_state.momentum_pmu,
-                "score_differential": game_state.score_differential
+
+        return success(
+            {
+                "recommendation": recommendation,
+                "game_state": {
+                    "possession_pct": game_state.possession_pct,
+                    "team_fatigue": game_state.team_fatigue,
+                    "momentum_pmu": game_state.momentum_pmu,
+                    "score_differential": game_state.score_differential,
+                },
             }
-        })
-    
+        )
+
     except Exception as e:
         return error(f"Recommendation error: {str(e)}", 500)
 
@@ -963,15 +1062,19 @@ def get_ml_recommendations():
 @app.route("/api/ml/status", methods=["GET"])
 def get_ml_status():
     """Get current ML policy training status."""
-    return success({
-        "policy_trained": policy_trainer.policy.trained,
-        "training_epoch": policy_trainer.training_epoch,
-        "model_params": policy_trainer.policy.model.count_params() if policy_trainer.policy.model else 0,
-        "last_training_job": ml_training_job_id,
-        "formations": policy_trainer.policy.FORMATIONS,
-        "tactics": policy_trainer.policy.TACTICS,
-        "action_count": policy_trainer.policy.ACTION_COUNT,
-    })
+    return success(
+        {
+            "policy_trained": policy_trainer.policy.trained,
+            "training_epoch": policy_trainer.training_epoch,
+            "model_params": policy_trainer.policy.model.count_params()
+            if policy_trainer.policy.model
+            else 0,
+            "last_training_job": ml_training_job_id,
+            "formations": policy_trainer.policy.FORMATIONS,
+            "tactics": policy_trainer.policy.TACTICS,
+            "action_count": policy_trainer.policy.ACTION_COUNT,
+        }
+    )
 
 
 @app.route("/api/ml/elite-coaches", methods=["GET"])
@@ -979,44 +1082,48 @@ def get_ml_status():
 def get_elite_coaches():
     """
     Get list of elite coaches that inspire the AI Coach.
-    
+
     Returns: List of 20 world-class coaches (2016-2026) with their tactical profiles.
     """
     try:
         from coaching.coaching_knowledge import get_all_coaches
-        
+
         coaches = get_all_coaches()
         coaches_data = []
-        
+
         for coach in coaches:
-            coaches_data.append({
-                'name': coach.name,
-                'nationality': coach.nationality,
-                'years_active': coach.years_active,
-                'primary_formation': coach.primary_formation,
-                'tactical_style': coach.tactical_style,
-                'key_principles': coach.key_principles,
-                'famous_achievements': coach.famous_achievements,
-                'tactical_profile': {
-                    'possession_preference': float(coach.possession_preference),
-                    'pressing_intensity': float(coach.pressing_intensity),
-                    'width_of_play': float(coach.width_of_play),
-                    'transition_speed': float(coach.transition_speed),
-                },
-                'training_emphasis': {
-                    'aerobic': float(coach.aerobic_emphasis),
-                    'technical': float(coach.technical_emphasis),
-                    'tactical': float(coach.tactical_emphasis),
-                    'mental': float(coach.mental_emphasis),
+            coaches_data.append(
+                {
+                    "name": coach.name,
+                    "nationality": coach.nationality,
+                    "years_active": coach.years_active,
+                    "primary_formation": coach.primary_formation,
+                    "tactical_style": coach.tactical_style,
+                    "key_principles": coach.key_principles,
+                    "famous_achievements": coach.famous_achievements,
+                    "tactical_profile": {
+                        "possession_preference": float(coach.possession_preference),
+                        "pressing_intensity": float(coach.pressing_intensity),
+                        "width_of_play": float(coach.width_of_play),
+                        "transition_speed": float(coach.transition_speed),
+                    },
+                    "training_emphasis": {
+                        "aerobic": float(coach.aerobic_emphasis),
+                        "technical": float(coach.technical_emphasis),
+                        "tactical": float(coach.tactical_emphasis),
+                        "mental": float(coach.mental_emphasis),
+                    },
                 }
-            })
-        
-        return success({
-            "total_coaches": len(coaches_data),
-            "coaches": coaches_data,
-            "description": "Elite coaches (2016-2026) whose tactical knowledge informs AI recommendations"
-        })
-    
+            )
+
+        return success(
+            {
+                "total_coaches": len(coaches_data),
+                "coaches": coaches_data,
+                "description": "Elite coaches (2016-2026) whose tactical knowledge informs AI recommendations",
+            }
+        )
+
     except Exception as e:
         return error(f"Failed to retrieve coaches: {str(e)}", 500)
 
@@ -1027,7 +1134,7 @@ def get_elite_coaches():
 def get_coach_recommendations():
     """
     Get elite coach recommendations for a specific game state.
-    
+
     Request body:
       {
         "game_state": {
@@ -1037,46 +1144,50 @@ def get_coach_recommendations():
           "score_differential": -1
         }
       }
-    
+
     Returns: Top 5 coaches whose tactics align with current game state
     """
     try:
         from coaching.coaching_knowledge import (
             get_coach_recommendations_for_state,
-            get_coach_tactical_profile
+            get_coach_tactical_profile,
         )
-        
+
         body = request.validated_data
         game_state = body.get("game_state", {})
-        
+
         recommendations = get_coach_recommendations_for_state(
             possession=float(game_state.get("possession_pct", 50)),
             fatigue=float(game_state.get("team_fatigue", 50)),
             momentum=float(game_state.get("momentum_pmu", 0)),
-            score_differential=int(game_state.get("score_differential", 0))
+            score_differential=int(game_state.get("score_differential", 0)),
         )
-        
+
         # Get top 5 coaches
         top_coaches = []
         for coach_name, score in recommendations[:5]:
             coach = get_coach_tactical_profile(coach_name)
             if coach:
-                top_coaches.append({
-                    'name': coach_name,
-                    'alignment_score': float(score),
-                    'primary_formation': coach.primary_formation,
-                    'tactical_style': coach.tactical_style,
-                    'key_principles': coach.key_principles[:3],  # Top 3 principles
-                })
-        
-        return success({
-            "game_state": game_state,
-            "recommended_coaches": top_coaches,
-            "insights": f"For {game_state.get('possession_pct', 50):.1f}% possession "
-                       f"and {game_state.get('team_fatigue', 50):.1f}% fatigue, "
-                       f"the AI learned from these elite coaches' tactical approaches."
-        })
-    
+                top_coaches.append(
+                    {
+                        "name": coach_name,
+                        "alignment_score": float(score),
+                        "primary_formation": coach.primary_formation,
+                        "tactical_style": coach.tactical_style,
+                        "key_principles": coach.key_principles[:3],  # Top 3 principles
+                    }
+                )
+
+        return success(
+            {
+                "game_state": game_state,
+                "recommended_coaches": top_coaches,
+                "insights": f"For {game_state.get('possession_pct', 50):.1f}% possession "
+                f"and {game_state.get('team_fatigue', 50):.1f}% fatigue, "
+                f"the AI learned from these elite coaches' tactical approaches.",
+            }
+        )
+
     except Exception as e:
         return error(f"Coach recommendation error: {str(e)}", 500)
 
@@ -1085,13 +1196,14 @@ def get_coach_recommendations():
 # SCENARIO PERSISTENCE — Save, load, and manage simulations
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/scenarios/save", methods=["POST"])
 @limiter.limit("200 per hour")
 @validate_json_request(required_fields=["name", "results"])
 def save_scenario():
     """
     Save a simulation result to persistent storage.
-    
+
     Request body:
       {
         "name": "Aggressive 4-2-4 vs Balanced 4-4-2",
@@ -1102,7 +1214,7 @@ def save_scenario():
       }
     """
     body = request.validated_data
-    
+
     try:
         # Validate inputs
         name = validate_scenario_name(body.get("name", "Unnamed Scenario"))
@@ -1110,29 +1222,35 @@ def save_scenario():
         results = body.get("results", {})
         config = body.get("config", {})
         tags = validate_tags(body.get("tags", []))
-        
+
         if not results:
-            return jsonify({"ok": False, "error": "No simulation results provided"}), 400
-        
+            return (
+                jsonify({"ok": False, "error": "No simulation results provided"}),
+                400,
+            )
+
     except ValidationError as e:
         error_handler.log_error("ValidationError", str(e))
         return jsonify({"ok": False, "error": str(e)}), 400
-    
+
     try:
         scenario_id = scenario_store.save_scenario(
             name=name,
             results=results,
             config=config,
             description=description,
-            tags=tags
+            tags=tags,
         )
-        
-        return success({
-            "scenario_id": scenario_id,
-            "message": f"Scenario '{name}' saved successfully",
-            "name": name,
-            "tags": tags,
-        }, 201)
+
+        return success(
+            {
+                "scenario_id": scenario_id,
+                "message": f"Scenario '{name}' saved successfully",
+                "name": name,
+                "tags": tags,
+            },
+            201,
+        )
     except Exception as e:
         error_handler.log_error("SaveError", str(e))
         return error(f"Failed to save scenario: {e}", 500)
@@ -1145,7 +1263,7 @@ def save_scenario():
 def list_scenarios():
     """
     List saved scenarios.
-    
+
     Query params:
       limit: Number of results (default 50, max 100)
       offset: Pagination offset (default 0)
@@ -1155,15 +1273,17 @@ def list_scenarios():
     offset = int(request.args.get("offset", 0))
     tags_str = request.args.get("tags", "")
     tags = [t.strip() for t in tags_str.split(",")] if tags_str else None
-    
+
     try:
         scenarios = scenario_store.list_scenarios(limit=limit, offset=offset, tags=tags)
-        return success({
-            "scenarios": scenarios,
-            "count": len(scenarios),
-            "limit": limit,
-            "offset": offset,
-        })
+        return success(
+            {
+                "scenarios": scenarios,
+                "count": len(scenarios),
+                "limit": limit,
+                "offset": offset,
+            }
+        )
     except Exception as e:
         traceback.print_exc()
         return error(f"Failed to list scenarios: {str(e)}", 500)
@@ -1178,10 +1298,12 @@ def get_scenario(scenario_id):
         scenario = scenario_store.get_scenario(scenario_id)
         if not scenario:
             return error(f"Scenario '{scenario_id}' not found", 404)
-        
-        return success({
-            "scenario": scenario,
-        })
+
+        return success(
+            {
+                "scenario": scenario,
+            }
+        )
     except Exception as e:
         traceback.print_exc()
         return error(f"Failed to retrieve scenario: {str(e)}", 500)
@@ -1196,11 +1318,13 @@ def delete_scenario(scenario_id):
         success_flag = scenario_store.delete_scenario(scenario_id)
         if not success_flag:
             return error(f"Scenario '{scenario_id}' not found", 404)
-        
-        return success({
-            "message": f"Scenario '{scenario_id}' deleted",
-            "scenario_id": scenario_id,
-        })
+
+        return success(
+            {
+                "message": f"Scenario '{scenario_id}' deleted",
+                "scenario_id": scenario_id,
+            }
+        )
     except Exception as e:
         traceback.print_exc()
         return error(f"Failed to delete scenario: {str(e)}", 500)
@@ -1210,7 +1334,7 @@ def delete_scenario(scenario_id):
 def update_scenario_metadata(scenario_id):
     """
     Update scenario metadata (name, description, tags) without re-running simulation.
-    
+
     Request body:
       {
         "name": "New scenario name",
@@ -1219,22 +1343,24 @@ def update_scenario_metadata(scenario_id):
       }
     """
     body = request.get_json(silent=True) or {}
-    
+
     try:
         success_flag = scenario_store.update_scenario_metadata(
             scenario_id,
             name=body.get("name"),
             description=body.get("description"),
-            tags=body.get("tags")
+            tags=body.get("tags"),
         )
-        
+
         if not success_flag:
             return error(f"Scenario '{scenario_id}' not found", 404)
-        
-        return success({
-            "message": "Scenario metadata updated",
-            "scenario_id": scenario_id,
-        })
+
+        return success(
+            {
+                "message": "Scenario metadata updated",
+                "scenario_id": scenario_id,
+            }
+        )
     except Exception as e:
         traceback.print_exc()
         return error(f"Failed to update scenario: {str(e)}", 500)
@@ -1244,7 +1370,7 @@ def update_scenario_metadata(scenario_id):
 def create_comparison():
     """
     Create a comparison group of multiple scenarios.
-    
+
     Request body:
       {
         "name": "Formation Comparison: 4-3-3 vs 3-5-2",
@@ -1253,26 +1379,27 @@ def create_comparison():
       }
     """
     body = request.get_json(silent=True) or {}
-    
+
     name = body.get("name", "Unnamed Comparison")
     scenario_ids = body.get("scenario_ids", [])
     notes = body.get("notes", "")
-    
+
     if not scenario_ids or len(scenario_ids) < 2:
         return error("Comparison requires at least 2 scenarios", 400)
-    
+
     try:
         comparison_id = scenario_store.create_comparison(
-            name=name,
-            scenario_ids=scenario_ids,
-            notes=notes
+            name=name, scenario_ids=scenario_ids, notes=notes
         )
-        
-        return success({
-            "comparison_id": comparison_id,
-            "message": f"Comparison '{name}' created",
-            "scenarios_count": len(scenario_ids),
-        }, 201)
+
+        return success(
+            {
+                "comparison_id": comparison_id,
+                "message": f"Comparison '{name}' created",
+                "scenarios_count": len(scenario_ids),
+            },
+            201,
+        )
     except Exception as e:
         traceback.print_exc()
         return error(f"Failed to create comparison: {str(e)}", 500)
@@ -1287,10 +1414,12 @@ def get_comparison(comparison_id):
         comparison = scenario_store.get_comparison(comparison_id)
         if not comparison:
             return error(f"Comparison '{comparison_id}' not found", 404)
-        
-        return success({
-            "comparison": comparison,
-        })
+
+        return success(
+            {
+                "comparison": comparison,
+            }
+        )
     except Exception as e:
         traceback.print_exc()
         return error(f"Failed to retrieve comparison: {str(e)}", 500)
@@ -1300,20 +1429,22 @@ def get_comparison(comparison_id):
 def list_comparisons():
     """
     List all comparison groups.
-    
+
     Query params:
       limit: Number of results (default 20)
       offset: Pagination offset (default 0)
     """
     limit = min(int(request.args.get("limit", 20)), 100)
     offset = int(request.args.get("offset", 0))
-    
+
     try:
         comparisons = scenario_store.list_comparisons(limit=limit, offset=offset)
-        return success({
-            "comparisons": comparisons,
-            "count": len(comparisons),
-        })
+        return success(
+            {
+                "comparisons": comparisons,
+                "count": len(comparisons),
+            }
+        )
     except Exception as e:
         traceback.print_exc()
         return error(f"Failed to list comparisons: {str(e)}", 500)
@@ -1322,6 +1453,7 @@ def list_comparisons():
 # ─────────────────────────────────────────────────────────────────────────────
 # QUICK SIMULATION — SINGLE-MATCH (no Monte Carlo aggregation)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.route("/api/simulate/quick", methods=["POST"])
 def simulate_quick():
@@ -1334,14 +1466,14 @@ def simulate_quick():
 
     try:
         sim = MatchSimulator(
-            formation_a   = body.get("formation",   "4-3-3"),
-            formation_b   = body.get("formation_b", "4-4-2"),
-            tactic_a      = body.get("tactic",      "balanced").lower(),
-            tactic_b      = body.get("tactic_b",    "balanced").lower(),
-            start_minute  = int(body.get("start_minute", 0)),
-            end_minute    = int(body.get("end_minute",   90)),
-            crowd_noise_db = float(body.get("crowd_noise", 80.0)),
-            scenario      = body.get("scenario",    "Baseline"),
+            formation_a=body.get("formation", "4-3-3"),
+            formation_b=body.get("formation_b", "4-4-2"),
+            tactic_a=body.get("tactic", "balanced").lower(),
+            tactic_b=body.get("tactic_b", "balanced").lower(),
+            start_minute=int(body.get("start_minute", 0)),
+            end_minute=int(body.get("end_minute", 90)),
+            crowd_noise_db=float(body.get("crowd_noise", 80.0)),
+            scenario=body.get("scenario", "Baseline"),
         )
         result = sim.run()
         return success(result)
@@ -1353,6 +1485,7 @@ def simulate_quick():
 # ─────────────────────────────────────────────────────────────────────────────
 # SINGLE EVENT IMPACT
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.route("/api/event", methods=["POST"])
 def compute_event():
@@ -1371,10 +1504,10 @@ def compute_event():
     """
     body = request.get_json(silent=True) or {}
     event_type = body.get("event_type", "pass")
-    player_id  = body.get("player_id",  "A1")
+    player_id = body.get("player_id", "A1")
     game_state = body.get("game_state", "tied")
-    minute     = int(body.get("minute", 45))
-    success_   = bool(body.get("success", True))
+    minute = int(body.get("minute", 45))
+    success_ = bool(body.get("success", True))
 
     # Find player from squad
     row = next((r for r in DEFAULT_SQUAD if r["id"] == player_id), None)
@@ -1386,23 +1519,26 @@ def compute_event():
         player.x = float(body["zone_x"])
 
     impact = EventProcessor.compute(event_type, player, game_state, minute, success_)
-    base   = EVENT_BASE_IMPACTS.get(event_type, 0.0)
+    base = EVENT_BASE_IMPACTS.get(event_type, 0.0)
 
-    return success({
-        "event_type": event_type,
-        "player_id":  player_id,
-        "player_name": row["name"],
-        "base_impact": base,
-        "contextual_impact": impact,
-        "minute": minute,
-        "game_state": game_state,
-        "success": success_,
-    })
+    return success(
+        {
+            "event_type": event_type,
+            "player_id": player_id,
+            "player_name": row["name"],
+            "base_impact": base,
+            "contextual_impact": impact,
+            "minute": minute,
+            "game_state": game_state,
+            "success": success_,
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PRESSURE MAP
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.route("/api/pressure", methods=["POST"])
 def compute_pressure():
@@ -1418,8 +1554,8 @@ def compute_pressure():
     """
     body = request.get_json(silent=True) or {}
     pressurer_ids = body.get("pressurer_ids", [])
-    target_id     = body.get("target_id", "B1")
-    formation     = body.get("formation", "4-3-3")
+    target_id = body.get("target_id", "B1")
+    formation = body.get("formation", "4-3-3")
 
     target_row = next((r for r in DEFAULT_SQUAD if r["id"] == target_id), None)
     if not target_row:
@@ -1438,24 +1574,29 @@ def compute_pressure():
     for ps in pressurer_states:
         imp = PressureEngine.compute_impact(ps, target_ps, coh)
         total += imp
-        impacts.append({
-            "pressurer_id":   ps.id,
-            "pressurer_name": ps.name,
-            "impact":         imp,
-        })
+        impacts.append(
+            {
+                "pressurer_id": ps.id,
+                "pressurer_name": ps.name,
+                "impact": imp,
+            }
+        )
 
-    return success({
-        "target_id":            target_id,
-        "target_name":          target_row["name"],
-        "formation_coherence":  round(coh, 4),
-        "pressurer_impacts":    impacts,
-        "total_pressure_impact": round(total, 3),
-    })
+    return success(
+        {
+            "target_id": target_id,
+            "target_name": target_row["name"],
+            "formation_coherence": round(coh, 4),
+            "pressurer_impacts": impacts,
+            "total_pressure_impact": round(total, 3),
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FATIGUE COMPUTE
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.route("/api/fatigue", methods=["POST"])
 def compute_fatigue():
@@ -1485,25 +1626,28 @@ def compute_fatigue():
 
     FatigueModel.update(
         ps,
-        speed       = float(body.get("speed", 0.0)),
-        distance    = float(body.get("distance", 0.0)),
-        acceleration= float(body.get("acceleration", 0.0)),
-        sprint_events = int(body.get("sprint_events", 0)),
-        is_stoppage = bool(body.get("is_stoppage", False)),
+        speed=float(body.get("speed", 0.0)),
+        distance=float(body.get("distance", 0.0)),
+        acceleration=float(body.get("acceleration", 0.0)),
+        sprint_events=int(body.get("sprint_events", 0)),
+        is_stoppage=bool(body.get("is_stoppage", False)),
     )
 
-    return success({
-        "player_id":        player_id,
-        "player_name":      row["name"],
-        "fatigue_before":   round(float(body.get("current_fatigue", 0.0)), 2),
-        "fatigue_after":    round(ps.fatigue, 2),
-        "pmu_after":        round(ps.pmu, 2),
-    })
+    return success(
+        {
+            "player_id": player_id,
+            "player_name": row["name"],
+            "fatigue_before": round(float(body.get("current_fatigue", 0.0)), 2),
+            "fatigue_after": round(ps.fatigue, 2),
+            "pmu_after": round(ps.pmu, 2),
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CROWD EFFECT
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.route("/api/crowd", methods=["POST"])
 def compute_crowd():
@@ -1529,37 +1673,44 @@ def compute_crowd():
     ps = build_player(row)
     crowd_val = CrowdEngine.compute(
         ps,
-        noise_db     = float(body.get("noise_db", 80.0)),
-        is_home      = bool(body.get("is_home", True)),
-        heart_rate   = float(body.get("heart_rate", 100.0)),
-        hrv          = float(body.get("hrv", 70.0)),
-        match_minute = int(body.get("match_minute", 45)),
+        noise_db=float(body.get("noise_db", 80.0)),
+        is_home=bool(body.get("is_home", True)),
+        heart_rate=float(body.get("heart_rate", 100.0)),
+        hrv=float(body.get("hrv", 70.0)),
+        match_minute=int(body.get("match_minute", 45)),
     )
     CrowdEngine.apply(ps, crowd_val)
 
-    return success({
-        "player_id":    player_id,
-        "player_name":  row["name"],
-        "crowd_impact": crowd_val,
-        "pmu_adjusted": round(ps.pmu, 2),
-        "interpretation": (
-            "Crowd boosts home player" if crowd_val > 0
-            else "Crowd suppresses away player" if crowd_val < 0
-            else "Neutral crowd effect"
-        ),
-    })
+    return success(
+        {
+            "player_id": player_id,
+            "player_name": row["name"],
+            "crowd_impact": crowd_val,
+            "pmu_adjusted": round(ps.pmu, 2),
+            "interpretation": (
+                "Crowd boosts home player"
+                if crowd_val > 0
+                else "Crowd suppresses away player"
+                if crowd_val < 0
+                else "Neutral crowd effect"
+            ),
+        }
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EVENTS REFERENCE
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/events", methods=["GET"])
 def list_events():
     """Return all supported event types and their base PMU impacts."""
     events = [
         {"event_type": k, "base_impact": v}
-        for k, v in sorted(EVENT_BASE_IMPACTS.items(), key=lambda x: abs(x[1]), reverse=True)
+        for k, v in sorted(
+            EVENT_BASE_IMPACTS.items(), key=lambda x: abs(x[1]), reverse=True
+        )
     ]
     return success({"events": events, "count": len(events)})
 
@@ -1568,11 +1719,12 @@ def list_events():
 # EXPORT — COACH REPORT (PDF/CSV)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/export-coach-report", methods=["POST"])
 def export_coach_report():
     """
     Generate and download Coach Report as PDF or CSV.
-    
+
     Request body:
       {
         "format": "pdf" or "csv",
@@ -1582,37 +1734,39 @@ def export_coach_report():
     body = request.get_json(silent=True) or {}
     export_format = body.get("format", "pdf").lower()
     sim_results = body.get("sim_results", {})
-    
+
     if not sim_results:
         return error("No simulation results provided", 400)
-    
+
     try:
         if export_format == "csv":
             # Generate CSV
             output = io.StringIO()
             writer = csv.writer(output)
-            
+
             # Header
             writer.writerow(["Football Momentum Analytics — Coach Report"])
-            writer.writerow([f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"])
+            writer.writerow(
+                [f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"]
+            )
             writer.writerow([])
-            
+
             # Key Metrics
             writer.writerow(["KEY METRICS"])
             writer.writerow(["Metric", "Value"])
-            avg_pmu_a = sim_results.get('avgPMU_A', 0)
-            avg_pmu_b = sim_results.get('avgPMU_B', 0)
-            xg_a = sim_results.get('xg_a', 0)
-            xg_b = sim_results.get('xg_b', 0)
-            goal_prob = sim_results.get('goalProbability', 0)
-            
+            avg_pmu_a = sim_results.get("avgPMU_A", 0)
+            avg_pmu_b = sim_results.get("avgPMU_B", 0)
+            xg_a = sim_results.get("xg_a", 0)
+            xg_b = sim_results.get("xg_b", 0)
+            goal_prob = sim_results.get("goalProbability", 0)
+
             writer.writerow(["Team A Momentum (PMU)", f"{float(avg_pmu_a):.2f}"])
             writer.writerow(["Team B Momentum (PMU)", f"{float(avg_pmu_b):.2f}"])
             writer.writerow(["Expected Goals (Team A)", f"{float(xg_a):.3f}"])
             writer.writerow(["Expected Goals (Team B)", f"{float(xg_b):.3f}"])
             writer.writerow(["Goal Probability", f"{(float(goal_prob) * 100):.1f}%"])
             writer.writerow([])
-            
+
             # Outcome Distribution
             writer.writerow(["OUTCOME DISTRIBUTION"])
             writer.writerow(["Outcome", "Probability"])
@@ -1621,41 +1775,70 @@ def export_coach_report():
             writer.writerow(["Team B Win", f"{outcomes.get('teamB_wins', 0):.1%}"])
             writer.writerow(["Draw", f"{outcomes.get('draws', 0):.1%}"])
             writer.writerow([])
-            
+
             # Tactical Impact
             writer.writerow(["TACTICAL IMPACT"])
             ti = sim_results.get("tactical_impact", {})
             writer.writerow(["Metric", "Value"])
             writer.writerow(["xG Impact", f"{float(ti.get('xg_impact', 0)):.3f}"])
-            writer.writerow(["xG Interpretation", ti.get('xg_impact_interpretation', 'N/A')])
-            writer.writerow(["Defensive Imbalance", f"{float(ti.get('defensive_imbalance_score', 0)):.2f}"])
-            writer.writerow(["Space Exploitation", ti.get('space_exploitation_rating', 'N/A')])
-            writer.writerow(["Press Vulnerability", ti.get('press_vulnerability', 'N/A')])
+            writer.writerow(
+                ["xG Interpretation", ti.get("xg_impact_interpretation", "N/A")]
+            )
+            writer.writerow(
+                [
+                    "Defensive Imbalance",
+                    f"{float(ti.get('defensive_imbalance_score', 0)):.2f}",
+                ]
+            )
+            writer.writerow(
+                ["Space Exploitation", ti.get("space_exploitation_rating", "N/A")]
+            )
+            writer.writerow(
+                ["Press Vulnerability", ti.get("press_vulnerability", "N/A")]
+            )
             writer.writerow([])
-            
+
             # Risk Assessment
             writer.writerow(["RISK ASSESSMENT"])
             risk = sim_results.get("risk_assessment", {})
             writer.writerow(["Metric", "Value"])
-            writer.writerow(["Shot Probability", f"{float(risk.get('shot_probability', 0)):.1f}%"])
-            writer.writerow(["High Quality Chance %", f"{float(risk.get('high_quality_chance', 0)):.1f}%"])
-            writer.writerow(["Turnover Risk", f"{float(risk.get('turnover_risk', 0)):.1f}%"])
-            writer.writerow(["Counterattack Exposure", f"{float(risk.get('counterattack_exposure', 0)):.1f}%"])
-            writer.writerow(["Overall Risk Level", risk.get('overall_risk_level', 'UNKNOWN')])
+            writer.writerow(
+                ["Shot Probability", f"{float(risk.get('shot_probability', 0)):.1f}%"]
+            )
+            writer.writerow(
+                [
+                    "High Quality Chance %",
+                    f"{float(risk.get('high_quality_chance', 0)):.1f}%",
+                ]
+            )
+            writer.writerow(
+                ["Turnover Risk", f"{float(risk.get('turnover_risk', 0)):.1f}%"]
+            )
+            writer.writerow(
+                [
+                    "Counterattack Exposure",
+                    f"{float(risk.get('counterattack_exposure', 0)):.1f}%",
+                ]
+            )
+            writer.writerow(
+                ["Overall Risk Level", risk.get("overall_risk_level", "UNKNOWN")]
+            )
             writer.writerow([])
-            
+
             # Recommendations
             writer.writerow(["RECOMMENDATIONS"])
             writer.writerow(["Priority", "Action", "Rationale"])
             for rec in sim_results.get("recommendations", []):
                 if isinstance(rec, dict):
-                    writer.writerow([
-                        rec.get("priority", ""),
-                        rec.get("action", ""),
-                        rec.get("rationale", "")
-                    ])
+                    writer.writerow(
+                        [
+                            rec.get("priority", ""),
+                            rec.get("action", ""),
+                            rec.get("rationale", ""),
+                        ]
+                    )
             writer.writerow([])
-            
+
             # Weakness Map
             writer.writerow(["WEAKNESS ANALYSIS"])
             wmap = sim_results.get("weakness_map", {})
@@ -1667,147 +1850,185 @@ def export_coach_report():
             for zone in wmap.get("exploitable_zones", []):
                 writer.writerow([zone])
             writer.writerow([])
-            writer.writerow(["Fatigue Risk High After Minute", wmap.get("fatigue_risk_high_after_minute", "N/A")])
-            
+            writer.writerow(
+                [
+                    "Fatigue Risk High After Minute",
+                    wmap.get("fatigue_risk_high_after_minute", "N/A"),
+                ]
+            )
+
             # Return as file
-            csv_bytes = output.getvalue().encode('utf-8')
+            csv_bytes = output.getvalue().encode("utf-8")
             return send_file(
                 io.BytesIO(csv_bytes),
-                mimetype='text/csv',
+                mimetype="text/csv",
                 as_attachment=True,
-                download_name=f"Coach_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+                download_name=f"Coach_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             )
-        
+
         elif export_format == "pdf":
             if not REPORTLAB_AVAILABLE:
                 return error("PDF export not available. Install reportlab.", 400)
-            
+
             # Generate PDF
             pdf_buffer = io.BytesIO()
             doc = SimpleDocTemplate(
                 pdf_buffer,
                 pagesize=letter,
-                rightMargin=0.5*inch,
-                leftMargin=0.5*inch,
-                topMargin=0.5*inch,
-                bottomMargin=0.5*inch,
+                rightMargin=0.5 * inch,
+                leftMargin=0.5 * inch,
+                topMargin=0.5 * inch,
+                bottomMargin=0.5 * inch,
             )
-            
+
             styles = getSampleStyleSheet()
             story = []
-            
+
             # Title
             title_style = ParagraphStyle(
-                'CustomTitle',
-                parent=styles['Heading1'],
+                "CustomTitle",
+                parent=styles["Heading1"],
                 fontSize=24,
-                textColor=colors.HexColor('#1f2937'),
+                textColor=colors.HexColor("#1f2937"),
                 spaceAfter=6,
-                fontName='Helvetica-Bold'
+                fontName="Helvetica-Bold",
             )
-            story.append(Paragraph("Coach Report — Tactical Decision Analytics", title_style))
-            story.append(Paragraph(f"<font size=10 color='#6B7280'>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</font>", styles['Normal']))
-            story.append(Spacer(1, 0.2*inch))
-            
+            story.append(
+                Paragraph("Coach Report — Tactical Decision Analytics", title_style)
+            )
+            story.append(
+                Paragraph(
+                    f"<font size=10 color='#6B7280'>{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</font>",
+                    styles["Normal"],
+                )
+            )
+            story.append(Spacer(1, 0.2 * inch))
+
             # Key Metrics Table
-            story.append(Paragraph("<b>Key Metrics</b>", styles['Heading2']))
+            story.append(Paragraph("<b>Key Metrics</b>", styles["Heading2"]))
             metrics_data = [
                 ["Metric", "Value"],
                 ["Team A Momentum", f"{float(sim_results.get('avgPMU_A', 0)):.2f} PMU"],
                 ["Team B Momentum", f"{float(sim_results.get('avgPMU_B', 0)):.2f} PMU"],
                 ["Expected Goals (A)", f"{float(sim_results.get('xg_a', 0)):.3f}"],
                 ["Expected Goals (B)", f"{float(sim_results.get('xg_b', 0)):.3f}"],
-                ["Goal Probability", f"{(float(sim_results.get('goalProbability', 0)) * 100):.1f}%"],
+                [
+                    "Goal Probability",
+                    f"{(float(sim_results.get('goalProbability', 0)) * 100):.1f}%",
+                ],
             ]
-            metrics_table = Table(metrics_data, colWidths=[3*inch, 2*inch])
-            metrics_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667EEA')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-            ]))
+            metrics_table = Table(metrics_data, colWidths=[3 * inch, 2 * inch])
+            metrics_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#667EEA")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("FONTSIZE", (0, 0), (-1, 0), 12),
+                        ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+                        ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                        ("FONTSIZE", (0, 1), (-1, -1), 10),
+                    ]
+                )
+            )
             story.append(metrics_table)
-            story.append(Spacer(1, 0.2*inch))
-            
+            story.append(Spacer(1, 0.2 * inch))
+
             # Outcome Distribution
             outcomes = sim_results.get("outcomeDistribution", {})
-            story.append(Paragraph("<b>Outcome Distribution</b>", styles['Heading2']))
+            story.append(Paragraph("<b>Outcome Distribution</b>", styles["Heading2"]))
             outcome_data = [
                 ["Outcome", "Probability"],
                 ["Team A Win", f"{float(outcomes.get('teamA_wins', 0)):.1%}"],
                 ["Team B Win", f"{float(outcomes.get('teamB_wins', 0)):.1%}"],
                 ["Draw", f"{float(outcomes.get('draws', 0)):.1%}"],
             ]
-            outcome_table = Table(outcome_data, colWidths=[3*inch, 2*inch])
-            outcome_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#667EEA')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ]))
+            outcome_table = Table(outcome_data, colWidths=[3 * inch, 2 * inch])
+            outcome_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#667EEA")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             story.append(outcome_table)
-            story.append(Spacer(1, 0.2*inch))
-            
+            story.append(Spacer(1, 0.2 * inch))
+
             # Recommendations
-            story.append(Paragraph("<b>AI-Powered Recommendations</b>", styles['Heading2']))
+            story.append(
+                Paragraph("<b>AI-Powered Recommendations</b>", styles["Heading2"])
+            )
             for rec in sim_results.get("recommendations", []):
                 if isinstance(rec, dict):
                     priority_color = {
                         "HIGH": "#DC2626",
                         "MEDIUM": "#F59E0B",
-                        "LOW": "#10B981"
+                        "LOW": "#10B981",
                     }.get(rec.get("priority", ""), "#667EEA")
-                    story.append(Paragraph(
-                        f"<font color='{priority_color}'><b>[{rec.get('priority', '')}]</b></font> {rec.get('action', '')}",
-                        styles['Normal']
-                    ))
-                    story.append(Paragraph(
-                        f"<font size=9 color='#6B7280'><i>{rec.get('rationale', '')}</i></font>",
-                        styles['Normal']
-                    ))
-                    story.append(Spacer(1, 0.1*inch))
-            
+                    story.append(
+                        Paragraph(
+                            f"<font color='{priority_color}'><b>[{rec.get('priority', '')}]</b></font> {rec.get('action', '')}",
+                            styles["Normal"],
+                        )
+                    )
+                    story.append(
+                        Paragraph(
+                            f"<font size=9 color='#6B7280'><i>{rec.get('rationale', '')}</i></font>",
+                            styles["Normal"],
+                        )
+                    )
+                    story.append(Spacer(1, 0.1 * inch))
+
             # Risk Assessment
             story.append(PageBreak())
             risk = sim_results.get("risk_assessment", {})
-            story.append(Paragraph("<b>Risk Assessment</b>", styles['Heading2']))
+            story.append(Paragraph("<b>Risk Assessment</b>", styles["Heading2"]))
             risk_data = [
                 ["Risk Metric", "Value"],
-                ["Overall Risk Level", risk.get('overall_risk_level', 'UNKNOWN')],
+                ["Overall Risk Level", risk.get("overall_risk_level", "UNKNOWN")],
                 ["Shot Probability", f"{risk.get('shot_probability', 0):.1f}%"],
                 ["Turnover Risk", f"{risk.get('turnover_risk', 0):.1f}%"],
-                ["Counterattack Exposure", f"{risk.get('counterattack_exposure', 0):.1f}%"],
+                [
+                    "Counterattack Exposure",
+                    f"{risk.get('counterattack_exposure', 0):.1f}%",
+                ],
             ]
-            risk_table = Table(risk_data, colWidths=[3*inch, 2*inch])
-            risk_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F59E0B')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ]))
+            risk_table = Table(risk_data, colWidths=[3 * inch, 2 * inch])
+            risk_table.setStyle(
+                TableStyle(
+                    [
+                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F59E0B")),
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
+                        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("GRID", (0, 0), (-1, -1), 1, colors.black),
+                    ]
+                )
+            )
             story.append(risk_table)
-            
+
             # Build PDF
             doc.build(story)
             pdf_buffer.seek(0)
-            
+
             return send_file(
                 pdf_buffer,
-                mimetype='application/pdf',
+                mimetype="application/pdf",
                 as_attachment=True,
-                download_name=f"Coach_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                download_name=f"Coach_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
             )
-        
+
         else:
-            return error(f"Unsupported format: {export_format}. Use 'pdf' or 'csv'", 400)
-    
+            return error(
+                f"Unsupported format: {export_format}. Use 'pdf' or 'csv'", 400
+            )
+
     except Exception as e:
         traceback.print_exc()
         return error(f"Export failed: {str(e)}", 500)
@@ -1817,12 +2038,13 @@ def export_coach_report():
 # 3D PLAYBACK DATA — Structured overlay for Unity/3D visualization
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/playback-data", methods=["POST"])
 def get_playback_data():
     """
     Get structured 3D playback data for Union 3D field visualization.
     Includes player positions, ball trajectory, pressure zones, momentum heatmap.
-    
+
     Request body:
       {
         "sim_results": { ... full simulation result ... },
@@ -1832,24 +2054,24 @@ def get_playback_data():
     body = request.get_json(silent=True) or {}
     sim_results = body.get("sim_results", {})
     time_step = int(body.get("time_step", 10))
-    
+
     if not sim_results:
         return error("No simulation results provided", 400)
-    
+
     try:
         # Extract key data from simulation
         avg_pmu_a = sim_results.get("avgPMU_A", 20.0)
         avg_pmu_b = sim_results.get("avgPMU_B", 20.0)
         xg_a = sim_results.get("xg_a", 0.0)
         xg_b = sim_results.get("xg_b", 0.0)
-        
+
         # Generate synthetic player position timeline (for 3D visualization)
         # In a real scenario, this would come from detailed match event log
         match_duration = 90  # minutes
         # Calculate step in minutes from time_step in seconds
         step_minutes = max(1, time_step // 60) if time_step >= 60 else 1
         frames = []
-        
+
         for minute in range(0, match_duration, step_minutes):
             # Synthetic positional data based on momentum and xG
             # Field dimensions: 105m x 68m
@@ -1859,35 +2081,167 @@ def get_playback_data():
                 "players": {
                     "team_a": [
                         # Goalkeeper
-                        {"id": "A1", "x": 5, "y": 34, "pmu": avg_pmu_a, "action": "defending"},
+                        {
+                            "id": "A1",
+                            "x": 5,
+                            "y": 34,
+                            "pmu": avg_pmu_a,
+                            "action": "defending",
+                        },
                         # Defenders
-                        {"id": "A2", "x": 20, "y": 15, "pmu": avg_pmu_a - 2, "action": "defending"},
-                        {"id": "A3", "x": 20, "y": 34, "pmu": avg_pmu_a, "action": "defending"},
-                        {"id": "A4", "x": 20, "y": 53, "pmu": avg_pmu_a - 1, "action": "defending"},
+                        {
+                            "id": "A2",
+                            "x": 20,
+                            "y": 15,
+                            "pmu": avg_pmu_a - 2,
+                            "action": "defending",
+                        },
+                        {
+                            "id": "A3",
+                            "x": 20,
+                            "y": 34,
+                            "pmu": avg_pmu_a,
+                            "action": "defending",
+                        },
+                        {
+                            "id": "A4",
+                            "x": 20,
+                            "y": 53,
+                            "pmu": avg_pmu_a - 1,
+                            "action": "defending",
+                        },
                         # Midfielders
-                        {"id": "A5", "x": 40, "y": 20, "pmu": avg_pmu_a + 1, "action": "passing"},
-                        {"id": "A6", "x": 45, "y": 34, "pmu": avg_pmu_a + 2, "action": "passing"},
-                        {"id": "A7", "x": 40, "y": 48, "pmu": avg_pmu_a, "action": "passing"},
+                        {
+                            "id": "A5",
+                            "x": 40,
+                            "y": 20,
+                            "pmu": avg_pmu_a + 1,
+                            "action": "passing",
+                        },
+                        {
+                            "id": "A6",
+                            "x": 45,
+                            "y": 34,
+                            "pmu": avg_pmu_a + 2,
+                            "action": "passing",
+                        },
+                        {
+                            "id": "A7",
+                            "x": 40,
+                            "y": 48,
+                            "pmu": avg_pmu_a,
+                            "action": "passing",
+                        },
                         # Forwards
-                        {"id": "A8", "x": 70, "y": 15, "pmu": avg_pmu_a + 3, "action": "attacking"},
-                        {"id": "A9", "x": 75, "y": 34, "pmu": avg_pmu_a + 4, "action": "attacking"},
-                        {"id": "A10", "x": 70, "y": 53, "pmu": avg_pmu_a + 2, "action": "attacking"},
-                        {"id": "A11", "x": 85, "y": 34, "pmu": avg_pmu_a + 3, "action": "attacking"},
+                        {
+                            "id": "A8",
+                            "x": 70,
+                            "y": 15,
+                            "pmu": avg_pmu_a + 3,
+                            "action": "attacking",
+                        },
+                        {
+                            "id": "A9",
+                            "x": 75,
+                            "y": 34,
+                            "pmu": avg_pmu_a + 4,
+                            "action": "attacking",
+                        },
+                        {
+                            "id": "A10",
+                            "x": 70,
+                            "y": 53,
+                            "pmu": avg_pmu_a + 2,
+                            "action": "attacking",
+                        },
+                        {
+                            "id": "A11",
+                            "x": 85,
+                            "y": 34,
+                            "pmu": avg_pmu_a + 3,
+                            "action": "attacking",
+                        },
                     ],
                     "team_b": [
                         # Mirror formation for Team B
-                        {"id": "B1", "x": 100, "y": 34, "pmu": avg_pmu_b, "action": "defending"},
-                        {"id": "B2", "x": 85, "y": 15, "pmu": avg_pmu_b - 2, "action": "defending"},
-                        {"id": "B3", "x": 85, "y": 34, "pmu": avg_pmu_b, "action": "defending"},
-                        {"id": "B4", "x": 85, "y": 53, "pmu": avg_pmu_b - 1, "action": "defending"},
-                        {"id": "B5", "x": 65, "y": 20, "pmu": avg_pmu_b + 1, "action": "passing"},
-                        {"id": "B6", "x": 60, "y": 34, "pmu": avg_pmu_b + 2, "action": "passing"},
-                        {"id": "B7", "x": 65, "y": 48, "pmu": avg_pmu_b, "action": "passing"},
-                        {"id": "B8", "x": 35, "y": 15, "pmu": avg_pmu_b + 3, "action": "attacking"},
-                        {"id": "B9", "x": 30, "y": 34, "pmu": avg_pmu_b + 4, "action": "attacking"},
-                        {"id": "B10", "x": 35, "y": 53, "pmu": avg_pmu_b + 2, "action": "attacking"},
-                        {"id": "B11", "x": 20, "y": 34, "pmu": avg_pmu_b + 3, "action": "attacking"},
-                    ]
+                        {
+                            "id": "B1",
+                            "x": 100,
+                            "y": 34,
+                            "pmu": avg_pmu_b,
+                            "action": "defending",
+                        },
+                        {
+                            "id": "B2",
+                            "x": 85,
+                            "y": 15,
+                            "pmu": avg_pmu_b - 2,
+                            "action": "defending",
+                        },
+                        {
+                            "id": "B3",
+                            "x": 85,
+                            "y": 34,
+                            "pmu": avg_pmu_b,
+                            "action": "defending",
+                        },
+                        {
+                            "id": "B4",
+                            "x": 85,
+                            "y": 53,
+                            "pmu": avg_pmu_b - 1,
+                            "action": "defending",
+                        },
+                        {
+                            "id": "B5",
+                            "x": 65,
+                            "y": 20,
+                            "pmu": avg_pmu_b + 1,
+                            "action": "passing",
+                        },
+                        {
+                            "id": "B6",
+                            "x": 60,
+                            "y": 34,
+                            "pmu": avg_pmu_b + 2,
+                            "action": "passing",
+                        },
+                        {
+                            "id": "B7",
+                            "x": 65,
+                            "y": 48,
+                            "pmu": avg_pmu_b,
+                            "action": "passing",
+                        },
+                        {
+                            "id": "B8",
+                            "x": 35,
+                            "y": 15,
+                            "pmu": avg_pmu_b + 3,
+                            "action": "attacking",
+                        },
+                        {
+                            "id": "B9",
+                            "x": 30,
+                            "y": 34,
+                            "pmu": avg_pmu_b + 4,
+                            "action": "attacking",
+                        },
+                        {
+                            "id": "B10",
+                            "x": 35,
+                            "y": 53,
+                            "pmu": avg_pmu_b + 2,
+                            "action": "attacking",
+                        },
+                        {
+                            "id": "B11",
+                            "x": 20,
+                            "y": 34,
+                            "pmu": avg_pmu_b + 3,
+                            "action": "attacking",
+                        },
+                    ],
                 },
                 "ball": {
                     "x": 52.5 + (xg_a - xg_b) * 30,  # Biased toward higher xG team
@@ -1900,62 +2254,62 @@ def get_playback_data():
                         "y": 34,
                         "radius": 15,
                         "intensity": min(xg_a * 100, 100),
-                        "team": "team_a"
+                        "team": "team_a",
                     },
                     {
                         "x": 45 - xg_b * 20,
                         "y": 34,
                         "radius": 15,
                         "intensity": min(xg_b * 100, 100),
-                        "team": "team_b"
-                    }
+                        "team": "team_b",
+                    },
                 ],
                 "momentum_heatmap": {
                     "team_a_avg": round(avg_pmu_a, 2),
                     "team_b_avg": round(avg_pmu_b, 2),
                     "momentum_delta": round(avg_pmu_a - avg_pmu_b, 2),
-                }
+                },
             }
             frames.append(frame)
-        
-        return success({
-            "playback_data": {
-                "match_duration_minutes": match_duration,
-                "total_frames": len(frames),
-                "time_step_seconds": time_step,
-                "field_dimensions": {"length_m": 105, "width_m": 68},
-                "frames": frames,
-            },
-            "analytics": {
-                "team_a_xg": round(xg_a, 3),
-                "team_b_xg": round(xg_b, 3),
-                "team_a_momentum_avg": round(avg_pmu_a, 2),
-                "team_b_momentum_avg": round(avg_pmu_b, 2),
-                "expected_winner": (
-                    "Team A" if xg_a > xg_b else
-                    "Team B" if xg_b > xg_a else
-                    "Draw"
-                ),
-            },
-            "integration_notes": "This data is designed for 3D field visualization in Unity. Import frames sequentially and overlay player positions, pressure zones, and momentum heatmap. Team positions are normalized to field coordinates (0-105 x 0-68)."
-        })
-    
+
+        return success(
+            {
+                "playback_data": {
+                    "match_duration_minutes": match_duration,
+                    "total_frames": len(frames),
+                    "time_step_seconds": time_step,
+                    "field_dimensions": {"length_m": 105, "width_m": 68},
+                    "frames": frames,
+                },
+                "analytics": {
+                    "team_a_xg": round(xg_a, 3),
+                    "team_b_xg": round(xg_b, 3),
+                    "team_a_momentum_avg": round(avg_pmu_a, 2),
+                    "team_b_momentum_avg": round(avg_pmu_b, 2),
+                    "expected_winner": (
+                        "Team A" if xg_a > xg_b else "Team B" if xg_b > xg_a else "Draw"
+                    ),
+                },
+                "integration_notes": "This data is designed for 3D field visualization in Unity. Import frames sequentially and overlay player positions, pressure zones, and momentum heatmap. Team positions are normalized to field coordinates (0-105 x 0-68).",
+            }
+        )
+
     except Exception as e:
         traceback.print_exc()
         return error(f"Playback data generation failed: {str(e)}", 500)
-
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # DETAILED EVENT LOGS — Full match event history
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/match-events", methods=["POST"])
 def get_match_events():
     """
     Generate detailed event log by running a single match (non-aggregated).
     Returns frame-by-frame events for all players.
-    
+
     Request body:
       {
         "formation": "4-3-3",
@@ -1969,7 +2323,7 @@ def get_match_events():
       }
     """
     body = request.get_json(silent=True) or {}
-    
+
     try:
         sim = MatchSimulator(
             formation_a=body.get("formation", "4-3-3"),
@@ -1981,13 +2335,13 @@ def get_match_events():
             crowd_noise_db=float(body.get("crowd_noise", 80.0)),
             scenario=body.get("scenario", "Baseline"),
         )
-        
+
         result = sim.run()
-        
+
         # Extract detailed event logs from all players
         match_events = []
         all_players = sim.players_a + sim.players_b
-        
+
         for player in all_players:
             if player.event_log:
                 for event in player.event_log:
@@ -2005,24 +2359,26 @@ def get_match_events():
                         "pmu_before": round(player.pmu, 2),
                     }
                     match_events.append(event_record)
-        
+
         # Sort by timestamp
         match_events.sort(key=lambda x: (x["minute"], x["player_id"]))
-        
-        return success({
-            "match_events": match_events,
-            "total_events": len(match_events),
-            "match_duration_minutes": result.get("match_duration", 90),
-            "match_stats": {
-                "team_a_score": result.get("score", {}).get("A", 0),
-                "team_b_score": result.get("score", {}).get("B", 0),
-                "team_a_pmu": round(result.get("team_a", {}).get("avg_pmu", 0), 2),
-                "team_b_pmu": round(result.get("team_b", {}).get("avg_pmu", 0), 2),
-                "team_a_xg": round(result.get("xg_a", 0), 3),
-                "team_b_xg": round(result.get("xg_b", 0), 3),
+
+        return success(
+            {
+                "match_events": match_events,
+                "total_events": len(match_events),
+                "match_duration_minutes": result.get("match_duration", 90),
+                "match_stats": {
+                    "team_a_score": result.get("score", {}).get("A", 0),
+                    "team_b_score": result.get("score", {}).get("B", 0),
+                    "team_a_pmu": round(result.get("team_a", {}).get("avg_pmu", 0), 2),
+                    "team_b_pmu": round(result.get("team_b", {}).get("avg_pmu", 0), 2),
+                    "team_a_xg": round(result.get("xg_a", 0), 3),
+                    "team_b_xg": round(result.get("xg_b", 0), 3),
+                },
             }
-        })
-    
+        )
+
     except Exception as e:
         traceback.print_exc()
         return error(f"Event log generation failed: {str(e)}", 500)
@@ -2032,12 +2388,13 @@ def get_match_events():
 # UNITY EXPORT — Ready-to-import JSON for 3D integration
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/unity-export", methods=["POST"])
 def unity_export():
     """
     Export simulation data in Unity-compatible JSON format.
     Includes player positions, events, analytics for 3D engine integration.
-    
+
     Request body:
       {
         "format": "json"  (may add fbx/unitypackage in future)
@@ -2049,14 +2406,14 @@ def unity_export():
     export_format = body.get("format", "json").lower()
     playback_data = body.get("playback_data", {})
     match_events = body.get("match_events", [])
-    
+
     if not playback_data:
         return error("No playback data provided", 400)
-    
+
     # Ensure match_events is a list
     if not isinstance(match_events, list):
         match_events = []
-    
+
     try:
         if export_format == "json":
             # Create Unity-compatible JSON structure
@@ -2079,34 +2436,46 @@ def unity_export():
                 "event_timeline": match_events,
                 "analytics": playback_data.get("analytics", {}),
             }
-            
+
             # Transform playback frames to Unity format
             frames = playback_data.get("playback_data", {}).get("frames", [])
             for frame in frames:
                 # Extract team players, ensuring they're dicts
                 team_a_players = frame.get("players", {}).get("team_a", [])
                 team_b_players = frame.get("players", {}).get("team_b", [])
-                
+
                 team_a_entities = []
                 for p in team_a_players:
                     if isinstance(p, dict):
-                        team_a_entities.append({
-                            "id": p.get("id", ""),
-                            "position": {"x": p.get("x", 0), "y": p.get("y", 0), "z": 0},
-                            "momentum": round(float(p.get("pmu", 0)), 2),
-                            "action": p.get("action", ""),
-                        })
-                
+                        team_a_entities.append(
+                            {
+                                "id": p.get("id", ""),
+                                "position": {
+                                    "x": p.get("x", 0),
+                                    "y": p.get("y", 0),
+                                    "z": 0,
+                                },
+                                "momentum": round(float(p.get("pmu", 0)), 2),
+                                "action": p.get("action", ""),
+                            }
+                        )
+
                 team_b_entities = []
                 for p in team_b_players:
                     if isinstance(p, dict):
-                        team_b_entities.append({
-                            "id": p.get("id", ""),
-                            "position": {"x": p.get("x", 0), "y": p.get("y", 0), "z": 0},
-                            "momentum": round(float(p.get("pmu", 0)), 2),
-                            "action": p.get("action", ""),
-                        })
-                
+                        team_b_entities.append(
+                            {
+                                "id": p.get("id", ""),
+                                "position": {
+                                    "x": p.get("x", 0),
+                                    "y": p.get("y", 0),
+                                    "z": 0,
+                                },
+                                "momentum": round(float(p.get("pmu", 0)), 2),
+                                "action": p.get("action", ""),
+                            }
+                        )
+
                 ball_data = frame.get("ball", {})
                 unity_frame = {
                     "frame_id": len(unity_data["animation_frames"]),
@@ -2126,19 +2495,21 @@ def unity_export():
                     "overlays": {
                         "pressure_zones": frame.get("pressure_zones", []),
                         "momentum_heatmap": frame.get("momentum_heatmap", {}),
-                    }
+                    },
                 }
                 unity_data["animation_frames"].append(unity_frame)
-            
-            return success({
-                "unity_export": unity_data,
-                "total_frames": len(unity_data["animation_frames"]),
-                "total_events": len(match_events),
-            })
-        
+
+            return success(
+                {
+                    "unity_export": unity_data,
+                    "total_frames": len(unity_data["animation_frames"]),
+                    "total_events": len(match_events),
+                }
+            )
+
         else:
             return error(f"Unsupported export format: {export_format}", 400)
-    
+
     except Exception as e:
         traceback.print_exc()
         return error(f"Unity export failed: {str(e)}", 500)
@@ -2151,11 +2522,12 @@ def unity_export():
 # In-memory snapshot storage (in production, use database)
 _snapshots = {}
 
+
 @app.route("/api/snapshots", methods=["POST"])
 def create_snapshot():
     """
     Create a snapshot of a specific moment in the simulation.
-    
+
     Request body:
       {
         "simulation_id": "abc123",
@@ -2167,13 +2539,13 @@ def create_snapshot():
       }
     """
     body = request.get_json(silent=True) or {}
-    
+
     try:
         sim_id = body.get("simulation_id", str(uuid.uuid4()))
         timestamp = int(body.get("timestamp", 0))
         minute = int(body.get("minute", 0))
         title = body.get("title", f"Snapshot at {minute}'")
-        
+
         snapshot_id = str(uuid.uuid4())[:8]
         snapshot = {
             "id": snapshot_id,
@@ -2185,19 +2557,22 @@ def create_snapshot():
             "frame_data": body.get("playback_frame", {}),
             "relevant_events": body.get("match_events", []),
         }
-        
+
         if sim_id not in _snapshots:
             _snapshots[sim_id] = []
-        
+
         _snapshots[sim_id].append(snapshot)
-        
-        return success({
-            "snapshot_id": snapshot_id,
-            "simulation_id": sim_id,
-            "timestamp": timestamp,
-            "title": title,
-        }, 201)
-    
+
+        return success(
+            {
+                "snapshot_id": snapshot_id,
+                "simulation_id": sim_id,
+                "timestamp": timestamp,
+                "title": title,
+            },
+            201,
+        )
+
     except Exception as e:
         traceback.print_exc()
         return error(f"Snapshot creation failed: {str(e)}", 500)
@@ -2208,11 +2583,13 @@ def list_snapshots(sim_id):
     """Retrieve all snapshots for a simulation."""
     try:
         snapshots = _snapshots.get(sim_id, [])
-        return success({
-            "simulation_id": sim_id,
-            "snapshots": snapshots,
-            "count": len(snapshots),
-        })
+        return success(
+            {
+                "simulation_id": sim_id,
+                "snapshots": snapshots,
+                "count": len(snapshots),
+            }
+        )
     except Exception as e:
         traceback.print_exc()
         return error(f"Failed to retrieve snapshots: {str(e)}", 500)
@@ -2224,10 +2601,10 @@ def get_snapshot(sim_id, snapshot_id):
     try:
         snapshots = _snapshots.get(sim_id, [])
         snapshot = next((s for s in snapshots if s["id"] == snapshot_id), None)
-        
+
         if not snapshot:
             return error("Snapshot not found", 404)
-        
+
         return success({"snapshot": snapshot})
     except Exception as e:
         traceback.print_exc()
@@ -2240,13 +2617,13 @@ def delete_snapshot(sim_id, snapshot_id):
     try:
         if sim_id not in _snapshots:
             return error("Simulation not found", 404)
-        
+
         original_count = len(_snapshots[sim_id])
         _snapshots[sim_id] = [s for s in _snapshots[sim_id] if s["id"] != snapshot_id]
-        
+
         if len(_snapshots[sim_id]) == original_count:
             return error("Snapshot not found", 404)
-        
+
         return success({"deleted": snapshot_id, "simulation_id": sim_id})
     except Exception as e:
         traceback.print_exc()
@@ -2257,28 +2634,29 @@ def delete_snapshot(sim_id, snapshot_id):
 # CALIBRATION & VALIDATION — Prove model accuracy on real data
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/validation/cross-match", methods=["GET"])
 @limiter.limit("10 per hour")
 def validate_cross_match():
     """
     Cross-match validation: run model against N test games.
-    
+
     Query parameters:
       games: Number of games to test (default: 50, max: 100)
       use_monte_carlo: Use MonteCarloEngine or simple predictor (default: false)
-    
+
     Returns:
       R² score, MAPE, best/worst predictions, and pass/fail status
     """
     num_games = min(int(request.args.get("games", 50)), 100)
     use_monte_carlo = request.args.get("use_monte_carlo", "false").lower() == "true"
-    
+
     if not synthetic_matches:
         return error("No test data available. Run generator first.", 500)
-    
+
     try:
         t0 = time.time()
-        
+
         # Create predictor function
         if use_monte_carlo:
             # Use actual MonteCarloEngine
@@ -2299,26 +2677,24 @@ def validate_cross_match():
                     return result.get("xg", 0.03)
                 except:
                     return 0.03
-            
+
             predictor = monte_carlo_predictor
         else:
             # Use simple baseline predictor
             predictor = create_simple_xg_predictor()
-        
+
         # Run validation
         result = calibration_validator.cross_match_validation(
-            synthetic_matches,
-            predictor,
-            num_games=num_games
+            synthetic_matches, predictor, num_games=num_games
         )
-        
+
         elapsed = round(time.time() - t0, 2)
         result["elapsed_seconds"] = elapsed
         result["request_id"] = g.request_id
         result["predictor_type"] = "monte_carlo" if use_monte_carlo else "baseline"
-        
+
         return success(result)
-    
+
     except Exception as e:
         traceback.print_exc()
         error_handler.log_error("ValidationError", str(e))
@@ -2331,41 +2707,42 @@ def validate_cross_match():
 def calibrate():
     """
     Full calibration workflow: generate new data, validate model, save results.
-    
+
     Request body (optional):
       {
         "num_matches": 100,        # Synthetic matches to generate
         "test_games": 50,          # Games to validate against
         "use_monte_carlo": false   # Use MonteCarloEngine (slower)
       }
-    
+
     Returns:
       Full validation report with metrics and recommendations
     """
     body = request.validated_data
-    
+
     try:
         num_matches = int(body.get("num_matches", 100))
         test_games = int(body.get("test_games", 50))
         use_monte_carlo = body.get("use_monte_carlo", False)
-        
+
         if num_matches > 500:
             num_matches = 500
         if test_games > num_matches:
             test_games = num_matches
-    
+
     except (ValueError, TypeError):
         return error("Invalid parameters", 400)
-    
+
     try:
         t0 = time.time()
-        
+
         # Generate fresh synthetic dataset
         generator = SyntheticDatasetGenerator(seed=int(time.time()) % 1000)
         matches = generator.generate_dataset(num_matches=num_matches)
-        
+
         # Create predictor
         if use_monte_carlo:
+
             def predictor(match: Dict) -> float:
                 try:
                     config = {
@@ -2383,18 +2760,17 @@ def calibrate():
                     return result.get("xg", 0.03)
                 except:
                     return 0.03
+
         else:
             predictor = create_simple_xg_predictor()
-        
+
         # Run validation
         result = calibration_validator.cross_match_validation(
-            matches,
-            predictor,
-            num_games=test_games
+            matches, predictor, num_games=test_games
         )
-        
+
         elapsed = round(time.time() - t0, 2)
-        
+
         # Build calibration report
         report = {
             "timestamp": datetime.now().isoformat(),
@@ -2408,34 +2784,40 @@ def calibrate():
             "recommendations": [],
             "request_id": g.request_id,
         }
-        
+
         # Generate recommendations
         if result.get("pass"):
-            report["recommendations"].append({
-                "level": "SUCCESS",
-                "message": f"Model validated! R² = {result['metrics']['r_squared']:.3f} (target: 0.70+)",
-                "action": "Model is ready for production deployment",
-            })
+            report["recommendations"].append(
+                {
+                    "level": "SUCCESS",
+                    "message": f"Model validated! R² = {result['metrics']['r_squared']:.3f} (target: 0.70+)",
+                    "action": "Model is ready for production deployment",
+                }
+            )
         else:
             r2 = result.get("metrics", {}).get("r_squared", 0.0)
             mape = result.get("metrics", {}).get("mape", 1.0)
-            
+
             if r2 < 0.70:
-                report["recommendations"].append({
-                    "level": "CRITICAL",
-                    "message": f"R² too low: {r2:.3f} (target: 0.70+)",
-                    "action": "Increase Monte Carlo iterations or calibrate model parameters",
-                })
-            
+                report["recommendations"].append(
+                    {
+                        "level": "CRITICAL",
+                        "message": f"R² too low: {r2:.3f} (target: 0.70+)",
+                        "action": "Increase Monte Carlo iterations or calibrate model parameters",
+                    }
+                )
+
             if mape >= 0.30:
-                report["recommendations"].append({
-                    "level": "WARNING",
-                    "message": f"MAPE is high: {mape:.3f} (target: <0.30)",
-                    "action": "Review model's formation/tactic impact factors",
-                })
-        
+                report["recommendations"].append(
+                    {
+                        "level": "WARNING",
+                        "message": f"MAPE is high: {mape:.3f} (target: <0.30)",
+                        "action": "Review model's formation/tactic impact factors",
+                    }
+                )
+
         return success(report)
-    
+
     except Exception as e:
         traceback.print_exc()
         error_handler.log_error("CalibrationError", str(e))
@@ -2446,15 +2828,17 @@ def calibrate():
 def validation_status():
     """Get validation framework status and data availability."""
     try:
-        return success({
-            "synthetic_dataset_loaded": len(synthetic_matches) > 0,
-            "synthetic_matches_available": len(synthetic_matches),
-            "calibration_validator_ready": True,
-            "baseline_predictor_available": True,
-            "monte_carlo_available": True,
-            "max_validation_games": min(len(synthetic_matches), 100),
-            "request_id": g.request_id,
-        })
+        return success(
+            {
+                "synthetic_dataset_loaded": len(synthetic_matches) > 0,
+                "synthetic_matches_available": len(synthetic_matches),
+                "calibration_validator_ready": True,
+                "baseline_predictor_available": True,
+                "monte_carlo_available": True,
+                "max_validation_games": min(len(synthetic_matches), 100),
+                "request_id": g.request_id,
+            }
+        )
     except Exception as e:
         error_handler.log_error("StatusError", str(e))
         return error(f"Failed to get status: {str(e)}", 500)
@@ -2464,12 +2848,13 @@ def validation_status():
 # TELEMETRY & EVENT COLLECTION — Real-time data gathering
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/events", methods=["POST"])
 @limiter.limit("1000 per minute")
 def collect_events():
     """
     Collect telemetry events from the frontend.
-    
+
     Request body:
       {
         "sessionId": "session_1234567890_abc123def",
@@ -2493,44 +2878,50 @@ def collect_events():
           }
         ]
       }
-    
+
     Stores events to backend/logs/events_{date}.jsonl for later analysis.
     """
     import json
     from datetime import datetime as dt
-    
+
     try:
         body = request.get_json(silent=True) or {}
         session_id = body.get("sessionId", "unknown")
         events = body.get("events", [])
-        
+
         if not events:
             return error("No events provided", 400)
-        
+
         # Ensure logs directory exists
         os.makedirs("backend/logs", exist_ok=True)
-        
+
         # Append events to JSONL file (one event per line)
         date_str = dt.now().strftime("%Y%m%d")
         log_file = f"backend/logs/events_{date_str}.jsonl"
-        
-        with open(log_file, 'a') as f:
+
+        with open(log_file, "a") as f:
             for event in events:
-                f.write(json.dumps({
-                    "sessionId": session_id,
-                    "event": event,
-                    "receivedAt": dt.now().isoformat(),
-                }))
-                f.write('\n')
-        
+                f.write(
+                    json.dumps(
+                        {
+                            "sessionId": session_id,
+                            "event": event,
+                            "receivedAt": dt.now().isoformat(),
+                        }
+                    )
+                )
+                f.write("\n")
+
         logger.info(f"Collected {len(events)} events from session {session_id}")
-        
-        return success({
-            "eventsReceived": len(events),
-            "sessionId": session_id,
-            "logFile": log_file,
-        })
-    
+
+        return success(
+            {
+                "eventsReceived": len(events),
+                "sessionId": session_id,
+                "logFile": log_file,
+            }
+        )
+
     except Exception as e:
         traceback.print_exc()
         error_handler.log_error("EventCollection", str(e))
@@ -2541,7 +2932,7 @@ def collect_events():
 def get_recent_events():
     """
     Retrieve recent events from telemetry logs.
-    
+
     Query params:
       limit: Max events to return (default 100)
       sessionId: Filter by session (optional)
@@ -2551,39 +2942,45 @@ def get_recent_events():
         limit = min(int(request.args.get("limit", 100)), 1000)
         session_id = request.args.get("sessionId")
         event_type = request.args.get("eventType")
-        
+
         os.makedirs("backend/logs", exist_ok=True)
-        
+
         # Read most recent events from today's log
         from datetime import datetime as dt
+
         date_str = dt.now().strftime("%Y%m%d")
         log_file = f"backend/logs/events_{date_str}.jsonl"
-        
+
         events = []
         if os.path.exists(log_file):
-            with open(log_file, 'r') as f:
+            with open(log_file, "r") as f:
                 lines = f.readlines()
                 # Read from end backwards to get most recent
-                for line in reversed(lines[-limit*2:]):  # Read extra to allow filtering
+                for line in reversed(
+                    lines[-limit * 2 :]
+                ):  # Read extra to allow filtering
                     if not line.strip():
                         continue
                     import json
+
                     entry = json.loads(line)
-                    
+
                     if session_id and entry.get("sessionId") != session_id:
                         continue
                     if event_type and entry.get("event", {}).get("type") != event_type:
                         continue
-                    
+
                     events.append(entry)
                     if len(events) >= limit:
                         break
-        
-        return success({
-            "eventsReturned": len(events),
-            "events": list(reversed(events)),  # Return in chronological order
-        })
-    
+
+        return success(
+            {
+                "eventsReturned": len(events),
+                "events": list(reversed(events)),  # Return in chronological order
+            }
+        )
+
     except Exception as e:
         traceback.print_exc()
         error_handler.log_error("EventRetrieval", str(e))
@@ -2594,12 +2991,13 @@ def get_recent_events():
 # MONTE CARLO ROLLOUTS — Probabilistic forecasting from event streams
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @app.route("/api/rollouts", methods=["POST"])
 @limiter.limit("100 per minute")
 def monte_carlo_rollouts():
     """
     Run Monte Carlo rollouts from current match state reconstructed from events.
-    
+
     Request body:
       {
         "sessionId": "session_...",
@@ -2609,7 +3007,7 @@ def monte_carlo_rollouts():
         "iterations": 1000,
         "forecastMinutes": 10
       }
-    
+
     Uses recent telemetry events to reconstruct match state, then simulates
     N iterations to produce probabilistic forecasts of:
       - Next action probabilities
@@ -2619,7 +3017,7 @@ def monte_carlo_rollouts():
     """
     import json
     from datetime import datetime as dt
-    
+
     try:
         body = request.get_json(silent=True) or {}
         session_id = body.get("sessionId", "unknown")
@@ -2628,35 +3026,38 @@ def monte_carlo_rollouts():
         crowd_noise = validate_crowd_noise(float(body.get("crowdNoise", 80.0)))
         iterations = validate_iterations(int(body.get("iterations", 1000)))
         forecast_minutes = int(body.get("forecastMinutes", 10))
-        
+
         # Reconstruct match state from recent events
         os.makedirs("backend/logs", exist_ok=True)
-        
+
         date_str = dt.now().strftime("%Y%m%d")
         log_file = f"backend/logs/events_{date_str}.jsonl"
-        
+
         # Parse events for state reconstruction
         player_states = {}
-        ball_state = {"position": {"x": 52.5, "y": 34.0}, "velocity": {"vx": 0, "vy": 0}}
+        ball_state = {
+            "position": {"x": 52.5, "y": 34.0},
+            "velocity": {"vx": 0, "vy": 0},
+        }
         match_context = {
             "minute": 45,
             "possession": {"teamA": 50, "teamB": 50},
             "score": {"teamA": 0, "teamB": 0},
         }
-        
+
         if os.path.exists(log_file):
             try:
-                with open(log_file, 'r') as f:
+                with open(log_file, "r") as f:
                     for line in f:
                         if not line.strip():
                             continue
                         entry = json.loads(line)
                         if entry.get("sessionId") != session_id:
                             continue
-                        
+
                         event = entry.get("event", {})
                         event_type = event.get("type")
-                        
+
                         if event_type == "player_state":
                             player_id = event.get("playerId")
                             player_states[player_id] = {
@@ -2667,16 +3068,26 @@ def monte_carlo_rollouts():
                             }
                         elif event_type == "ball_state":
                             ball_state = {
-                                "position": event.get("position", ball_state["position"]),
-                                "velocity": event.get("velocity", ball_state["velocity"]),
+                                "position": event.get(
+                                    "position", ball_state["position"]
+                                ),
+                                "velocity": event.get(
+                                    "velocity", ball_state["velocity"]
+                                ),
                             }
                         elif event_type == "match_context":
-                            match_context["minute"] = event.get("minute", match_context["minute"])
-                            match_context["possession"] = event.get("possession", match_context["possession"])
-                            match_context["score"] = event.get("score", match_context["score"])
+                            match_context["minute"] = event.get(
+                                "minute", match_context["minute"]
+                            )
+                            match_context["possession"] = event.get(
+                                "possession", match_context["possession"]
+                            )
+                            match_context["score"] = event.get(
+                                "score", match_context["score"]
+                            )
             except Exception as e:
                 logger.warning(f"Error reading event log: {e}")
-        
+
         # Run simulations using MatchSimulator
         sim = MatchSimulator(
             formation_a=formation,
@@ -2688,7 +3099,7 @@ def monte_carlo_rollouts():
             crowd_noise_db=crowd_noise,
         )
         result = sim.run()
-        
+
         # Compute rollout statistics
         rollout_stats = {
             "iterations": iterations,
@@ -2708,11 +3119,13 @@ def monte_carlo_rollouts():
             },
             "confidence": min(0.8 + (len(player_states) / 22.0) * 0.2, 1.0),
         }
-        
-        logger.info(f"Completed rollouts for session {session_id}: {iterations} iterations")
-        
+
+        logger.info(
+            f"Completed rollouts for session {session_id}: {iterations} iterations"
+        )
+
         return success(rollout_stats)
-    
+
     except ValidationError as e:
         return error(str(e), 400)
     except Exception as e:
@@ -2724,6 +3137,7 @@ def monte_carlo_rollouts():
 # ─────────────────────────────────────────────────────────────────────────────
 # ERROR HANDLERS
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @app.errorhandler(404)
 def not_found(exc):
@@ -2744,6 +3158,7 @@ def internal_error(exc):
 # ─────────────────────────────────────────────────────────────────────────────
 # WEBSOCKET EVENTS — For real-time streaming
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @socketio.on("connect")
 def handle_connect():
@@ -2771,9 +3186,7 @@ def handle_subscribe_job(data):
 def handle_subscribe_ml_training():
     """Subscribe to ML training progress updates."""
     print(f"Client {request.sid} subscribed to ML training")
-    emit("ml_subscription_confirmed", {
-        "message": "Subscribed to ML training updates"
-    })
+    emit("ml_subscription_confirmed", {"message": "Subscribed to ML training updates"})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2787,7 +3200,9 @@ if __name__ == "__main__":
     logger.info("  WebSocket: ws://127.0.0.1:5000/socket.io")
     logger.info("%s", "=" * 60)
     try:
-        socketio.run(app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True)
+        socketio.run(
+            app, host="0.0.0.0", port=5000, debug=True, allow_unsafe_werkzeug=True
+        )
     except Exception:
         logger.exception("Unhandled exception while starting the server")
         raise

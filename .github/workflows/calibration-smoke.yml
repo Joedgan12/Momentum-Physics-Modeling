@@ -2,7 +2,7 @@ name: Calibration Smoke Test
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - '.github/workflows/calibration-smoke.yml'
       - '.github/workflows/calibration.yml'

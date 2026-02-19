@@ -1,8 +1,8 @@
 """ML-powered tactical recommendations module"""
 
 from .policy_trainer import (
-    TacticalPolicyNetwork,
     PolicyTrainer,
+    TacticalPolicyNetwork,
     TrainingState,
     TrainingTransition,
     create_trainer,
@@ -10,10 +10,10 @@ from .policy_trainer import (
 )
 
 __all__ = [
-    'TacticalPolicyNetwork',
-    'PolicyTrainer',
-    'TrainingState',
-    'TrainingTransition',
-    'create_trainer',
-    'train_policy_async',
+    "TacticalPolicyNetwork",
+    "PolicyTrainer",
+    "TrainingState",
+    "TrainingTransition",
+    "create_trainer",
+    "train_policy_async",
 ]

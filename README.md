@@ -20,14 +20,14 @@ Where:
 
 ### Key Features
 
-✅ **22 Real Players** — Salah, De Bruyne, Haaland, Dias, etc. with authentic stats  
-✅ **1000+ Match Events** — Goals, tackles, passes, interceptions with position & zone modifiers  
-✅ **Monte Carlo Engine** — 500 independent match simulations to predict goal probability & xG  
-✅ **Pressure Propagation** — Distance decay, cone-based cone-of-influence, formation coherence  
-✅ **Fatigue Dynamics** — Speed/acceleration/sprint accumulation with recovery in stoppages  
-✅ **Crowd Influence** — Home advantage via noise dB, heart rate stress, experience modifier  
-✅ **Agent-Based Decisions** — Stochastic heuristic player actions based on PMU & game state  
-✅ **React Frontend** — Real-time dashboard with elite gradient UI & interactive scenario panels  
+✅ **22 Real Players** — Salah, De Bruyne, Haaland, Dias, etc. with authentic stats
+✅ **1000+ Match Events** — Goals, tackles, passes, interceptions with position & zone modifiers
+✅ **Monte Carlo Engine** — 500 independent match simulations to predict goal probability & xG
+✅ **Pressure Propagation** — Distance decay, cone-based cone-of-influence, formation coherence
+✅ **Fatigue Dynamics** — Speed/acceleration/sprint accumulation with recovery in stoppages
+✅ **Crowd Influence** — Home advantage via noise dB, heart rate stress, experience modifier
+✅ **Agent-Based Decisions** — Stochastic heuristic player actions based on PMU & game state
+✅ **React Frontend** — Real-time dashboard with elite gradient UI & interactive scenario panels
 ✅ **Flask REST API** — Full-featured endpoints for simulation, player stats, pressure maps, etc.
 
 ---
@@ -216,16 +216,16 @@ simulation/
 
 ## 📚 Features Implemented
 
-✅ Complete physics-based momentum model  
-✅ Monte Carlo scenario simulation (up to 2000 iterations)  
-✅ Real-time React dashboard with Recharts visualizations  
-✅ 11 REST API endpoints (simulation, player stats, pressure, crowd, etc.)  
-✅ Agent-based player decision making (stochastic heuristics)  
-✅ Fatigue & recovery dynamics  
-✅ Crowd influence modeling  
-✅ Formation coherence & spatial analysis  
-✅ Full CORS support for frontend-backend integration  
-✅ Vite dev server with proxy to Flask API  
+✅ Complete physics-based momentum model
+✅ Monte Carlo scenario simulation (up to 2000 iterations)
+✅ Real-time React dashboard with Recharts visualizations
+✅ 11 REST API endpoints (simulation, player stats, pressure, crowd, etc.)
+✅ Agent-based player decision making (stochastic heuristics)
+✅ Fatigue & recovery dynamics
+✅ Crowd influence modeling
+✅ Formation coherence & spatial analysis
+✅ Full CORS support for frontend-backend integration
+✅ Vite dev server with proxy to Flask API
 
 ---
 

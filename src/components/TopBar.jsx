@@ -1,13 +1,20 @@
-import React, { useState } from 'react'
-import { ChevronDown, Bell, Settings } from 'lucide-react'
+import React, { useState } from 'react';
+import { ChevronDown, Bell, Settings } from 'lucide-react';
 
-export default function TopBar({ scenario, onScenarioChange, simRunning = false, simResults = null, onSettingsClick, onNotificationsClick }) {
-  const scenarios = ['Baseline', 'Aggressive', 'Defensive', 'Possession', 'Counter']
-  const [notificationBadgeCount, setNotificationBadgeCount] = useState(0)
+export default function TopBar({
+  scenario,
+  onScenarioChange,
+  simRunning = false,
+  simResults = null,
+  onSettingsClick,
+  onNotificationsClick,
+}) {
+  const scenarios = ['Baseline', 'Aggressive', 'Defensive', 'Possession', 'Counter'];
+  const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
 
-  const avgPMU  = simResults?.avgPMU?.toFixed(1) ?? '—'
-  const xg      = simResults?.xg              ?? '—'
-  const iters   = simResults?.iterations      ?? '—'
+  const avgPMU = simResults?.avgPMU?.toFixed(1) ?? '—';
+  const xg = simResults?.xg ?? '—';
+  const iters = simResults?.iterations ?? '—';
 
   return (
     <div className="topbar">
@@ -15,8 +22,8 @@ export default function TopBar({ scenario, onScenarioChange, simRunning = false,
       <div
         className="scenario-select"
         onClick={() => {
-          const i = scenarios.indexOf(scenario)
-          onScenarioChange(scenarios[(i + 1) % scenarios.length])
+          const i = scenarios.indexOf(scenario);
+          onScenarioChange(scenarios[(i + 1) % scenarios.length]);
         }}
         title="Cycle scenario"
       >
@@ -50,42 +57,39 @@ export default function TopBar({ scenario, onScenarioChange, simRunning = false,
 
       {/* Actions */}
       <div className="topbar-actions">
-        <button 
-          className="icon-btn" 
+        <button
+          className="icon-btn"
           title="Notifications"
           onClick={onNotificationsClick}
           style={{ position: 'relative' }}
         >
           <Bell size={14} />
           {notificationBadgeCount > 0 && (
-            <span style={{
-              position: 'absolute',
-              top: '-2px',
-              right: '-2px',
-              background: 'var(--plasma)',
-              color: '#000',
-              borderRadius: '50%',
-              width: '16px',
-              height: '16px',
-              fontSize: '10px',
-              fontWeight: '700',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+            <span
+              style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-2px',
+                background: 'var(--plasma)',
+                color: '#000',
+                borderRadius: '50%',
+                width: '16px',
+                height: '16px',
+                fontSize: '10px',
+                fontWeight: '700',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               {notificationBadgeCount}
             </span>
           )}
         </button>
-        <button 
-          className="icon-btn" 
-          title="Settings"
-          onClick={onSettingsClick}
-        >
+        <button className="icon-btn" title="Settings" onClick={onSettingsClick}>
           <Settings size={14} />
         </button>
       </div>
     </div>
-  )
+  );
 }
-

@@ -11,12 +11,14 @@ This module provides:
 4. Situational recommendations (game state → optimal tactic)
 """
 
-from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple
+
 
 @dataclass
 class CoachProfile:
     """Elite coach profile with tactical DNA"""
+
     name: str
     nationality: str
     years_active: Tuple[int, int]  # (start_year, end_year)
@@ -25,13 +27,13 @@ class CoachProfile:
     tactical_style: str  # "possession", "counter", "pressing", "balanced", etc.
     key_principles: List[str]  # Coaching philosophy
     famous_achievements: List[str]
-    
+
     # Tactical preferences (0-1 scale)
     possession_preference: float  # 0=counter-attack, 1=possession-based
     pressing_intensity: float  # 0=defensively compact, 1=aggressive high press
     width_of_play: float  # 0=central play, 1=wide attacking play
     transition_speed: float  # 0=structured, 1=rapid counter
-    
+
     # Training focus areas (0-1 scale)
     aerobic_emphasis: float  # Fitness conditioning
     technical_emphasis: float  # Ball control, passing
@@ -64,7 +66,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.75,
         mental_emphasis=0.60,
     ),
-    
     CoachProfile(
         name="Pep Guardiola",
         nationality="Spanish",
@@ -78,7 +79,10 @@ ELITE_COACHES: List[CoachProfile] = [
             "Positional superiority",
             "Suffocating defense through possession",
         ],
-        famous_achievements=["Manchester City dominance", "Multiple Premier League titles"],
+        famous_achievements=[
+            "Manchester City dominance",
+            "Multiple Premier League titles",
+        ],
         possession_preference=0.95,
         pressing_intensity=0.90,
         width_of_play=0.70,
@@ -88,7 +92,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.90,
         mental_emphasis=0.75,
     ),
-    
     CoachProfile(
         name="Luis Enrique",
         nationality="Spanish",
@@ -112,7 +115,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.80,
         mental_emphasis=0.70,
     ),
-    
     CoachProfile(
         name="Thomas Tuchel",
         nationality="German",
@@ -136,7 +138,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.85,
         mental_emphasis=0.75,
     ),
-    
     CoachProfile(
         name="Jürgen Klopp",
         nationality="German",
@@ -160,7 +161,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.75,
         mental_emphasis=0.85,
     ),
-    
     CoachProfile(
         name="Marco Rose",
         nationality="German",
@@ -184,7 +184,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.70,
         mental_emphasis=0.65,
     ),
-    
     CoachProfile(
         name="Zinedine Zidane",
         nationality="French",
@@ -208,7 +207,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.75,
         mental_emphasis=0.90,
     ),
-    
     CoachProfile(
         name="Maurizio Sarri",
         nationality="Italian",
@@ -232,7 +230,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.80,
         mental_emphasis=0.60,
     ),
-    
     CoachProfile(
         name="Luis de la Fuente",
         nationality="Spanish",
@@ -256,7 +253,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.75,
         mental_emphasis=0.70,
     ),
-    
     CoachProfile(
         name="Gareth Southgate",
         nationality="English",
@@ -280,7 +276,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.80,
         mental_emphasis=0.80,
     ),
-    
     CoachProfile(
         name="Ange Postecoglou",
         nationality="Australian",
@@ -304,7 +299,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.70,
         mental_emphasis=0.75,
     ),
-    
     CoachProfile(
         name="Simone Inzaghi",
         nationality="Italian",
@@ -328,7 +322,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.80,
         mental_emphasis=0.70,
     ),
-    
     CoachProfile(
         name="Erik ten Hag",
         nationality="Dutch",
@@ -352,7 +345,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.80,
         mental_emphasis=0.70,
     ),
-    
     CoachProfile(
         name="Xavi Hernández",
         nationality="Spanish",
@@ -376,7 +368,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.85,
         mental_emphasis=0.65,
     ),
-    
     CoachProfile(
         name="Nico Kovač",
         nationality="Croatian",
@@ -400,7 +391,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.80,
         mental_emphasis=0.70,
     ),
-    
     CoachProfile(
         name="Luciano Spalletti",
         nationality="Italian",
@@ -424,7 +414,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.75,
         mental_emphasis=0.70,
     ),
-    
     CoachProfile(
         name="Trent Alexander-Arnold (emerging)",
         nationality="English",  # Hypothetical future coach
@@ -448,7 +437,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.75,
         mental_emphasis=0.70,
     ),
-    
     CoachProfile(
         name="Julian Nagelsmann",
         nationality="German",
@@ -472,7 +460,6 @@ ELITE_COACHES: List[CoachProfile] = [
         tactical_emphasis=0.85,
         mental_emphasis=0.70,
     ),
-    
     CoachProfile(
         name="Steve Clarke",
         nationality="Scottish",
@@ -510,14 +497,14 @@ def get_coach_recommendations_for_state(
     Returns: [(coach_name, recommendation_score), ...]
     """
     recommendations = []
-    
+
     for coach in ELITE_COACHES:
         score = 0.0
-        
+
         # Score based on possession preference vs. current possession
         possession_match = 1.0 - abs(coach.possession_preference - (possession / 100.0))
         score += possession_match * 0.25
-        
+
         # Score based on pressing intensity vs. current situation
         if momentum > 0:  # Winning, can press more
             pressing_match = coach.pressing_intensity
@@ -525,14 +512,14 @@ def get_coach_recommendations_for_state(
         else:  # Losing, might need conservative approach
             pressing_match = 1.0 - coach.pressing_intensity
             score += pressing_match * 0.20
-        
+
         # Score based on fatigue management
         if fatigue > 70:  # Players tired, need structured approach
             structure_emphasis = 1.0 - coach.transition_speed
             score += structure_emphasis * 0.15
         else:
             score += coach.transition_speed * 0.15
-        
+
         # Score based on tactical style for given situation
         if score_differential > 0:  # Winning
             # Prefer coaches known for controlling games
@@ -544,15 +531,15 @@ def get_coach_recommendations_for_state(
             # Prefer balanced coaches
             balance = 1.0 - abs(coach.possession_preference - 0.5) * 2
             score += balance * 0.20
-        
+
         # Normalize to 0-1
         score = min(1.0, score / 1.0)
-        
+
         recommendations.append((coach.name, score))
-    
+
     # Sort by score (descending)
     recommendations.sort(key=lambda x: x[1], reverse=True)
-    
+
     return recommendations
 
 
@@ -575,12 +562,12 @@ def get_training_emphasis(coach_name: str) -> Optional[Dict[str, float]]:
     coach = get_coach_tactical_profile(coach_name)
     if not coach:
         return None
-    
+
     return {
-        'aerobic': coach.aerobic_emphasis,
-        'technical': coach.technical_emphasis,
-        'tactical': coach.tactical_emphasis,
-        'mental': coach.mental_emphasis,
+        "aerobic": coach.aerobic_emphasis,
+        "technical": coach.technical_emphasis,
+        "tactical": coach.tactical_emphasis,
+        "mental": coach.mental_emphasis,
     }
 
 
@@ -591,4 +578,6 @@ def get_all_coaches() -> List[CoachProfile]:
 
 def get_coaches_by_style(tactical_style: str) -> List[CoachProfile]:
     """Filter coaches by tactical style"""
-    return [c for c in ELITE_COACHES if tactical_style.lower() in c.tactical_style.lower()]
+    return [
+        c for c in ELITE_COACHES if tactical_style.lower() in c.tactical_style.lower()
+    ]

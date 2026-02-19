@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: ruff-local
         name: ruff (python - local)
-        entry: ruff --fix
+        entry: python -m ruff --fix
         language: system
         types: [python]
 

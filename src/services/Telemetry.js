@@ -1,55 +1,55 @@
 /**
  * Telemetry.js
  * Client-side event tracking and transmission for real-time coaching analytics
- * 
+ *
  * Captures:
  *  - Player positions & velocities
  *  - Ball state (position, velocity)
  *  - Event types (pass, tackle, shot, etc.)
  *  - Tactical context (formation, tactic, possession)
  *  - Crowd state (noise level, sentiment)
- * 
+ *
  * Batches events and transmits to /api/events endpoint
  */
 
 export class TelemetryClient {
   constructor(options = {}) {
-    this.apiUrl = options.apiUrl || 'http://localhost:5000/api'
-    this.batchSize = options.batchSize || 50
-    this.flushInterval = options.flushInterval || 5000 // ms
-    this.enabled = options.enabled !== false
+    this.apiUrl = options.apiUrl || 'http://localhost:5000/api';
+    this.batchSize = options.batchSize || 50;
+    this.flushInterval = options.flushInterval || 5000; // ms
+    this.enabled = options.enabled !== false;
 
-    this.eventQueue = []
-    this.sessionId = this.generateSessionId()
-    this.startTime = Date.now()
-    this.flushTimer = null
+    this.eventQueue = [];
+    this.sessionId = this.generateSessionId();
+    this.startTime = Date.now();
+    this.flushTimer = null;
 
     if (this.enabled) {
-      this.startAutoFlush()
+      this.startAutoFlush();
     }
   }
 
   generateSessionId() {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
   /**
    * Record a discrete event (pass, shot, tackle, etc.)
    */
   trackEvent(event) {
-    if (!this.enabled) return
+    if (!this.enabled) return;
 
     const enriched = {
       ...event,
       sessionId: this.sessionId,
       timestamp: Date.now(),
       elapsedMs: Date.now() - this.startTime,
-    }
+    };
 
-    this.eventQueue.push(enriched)
+    this.eventQueue.push(enriched);
 
     if (this.eventQueue.length >= this.batchSize) {
-      this.flush()
+      this.flush();
     }
   }
 
@@ -65,7 +65,7 @@ export class TelemetryClient {
       pmu: state.pmu,
       fatigue: state.fatigue,
       pressure: state.pressure,
-    })
+    });
   }
 
   /**
@@ -78,7 +78,7 @@ export class TelemetryClient {
       velocity: ballState.velocity, // {vx, vy}
       possession: ballState.possession,
       zone: ballState.zone, // 'defensive_third', 'middle_third', 'attacking_third'
-    })
+    });
   }
 
   /**
@@ -89,7 +89,7 @@ export class TelemetryClient {
       type: 'action',
       actionType, // 'pass', 'shot', 'tackle', 'press', 'interception', etc.
       ...context, // {fromPlayerId, toPlayerId, zone, success, pressure, etc.}
-    })
+    });
   }
 
   /**
@@ -104,7 +104,7 @@ export class TelemetryClient {
       possession: context.possession, // {teamA%, teamB%}
       crowdNoise: context.crowdNoise,
       minute: context.minute,
-    })
+    });
   }
 
   /**
@@ -118,17 +118,17 @@ export class TelemetryClient {
       options: decision.options,
       chosen: decision.chosen,
       confidence: decision.confidence,
-    })
+    });
   }
 
   /**
    * Manually flush queued events to backend
    */
   async flush() {
-    if (this.eventQueue.length === 0) return
+    if (this.eventQueue.length === 0) return;
 
-    const events = [...this.eventQueue]
-    this.eventQueue = []
+    const events = [...this.eventQueue];
+    this.eventQueue = [];
 
     try {
       const response = await fetch(`${this.apiUrl}/events`, {
@@ -140,20 +140,20 @@ export class TelemetryClient {
           sessionId: this.sessionId,
           events,
         }),
-      })
+      });
 
       if (!response.ok) {
-        console.error('[Telemetry] Failed to flush events:', response.statusText)
+        console.error('[Telemetry] Failed to flush events:', response.statusText);
         // Re-queue on failure
-        this.eventQueue.unshift(...events)
+        this.eventQueue.unshift(...events);
       } else {
-        const data = await response.json()
-        console.log(`[Telemetry] Flushed ${events.length} events`)
+        const data = await response.json();
+        console.log(`[Telemetry] Flushed ${events.length} events`);
       }
     } catch (err) {
-      console.error('[Telemetry] Flush error:', err)
+      console.error('[Telemetry] Flush error:', err);
       // Re-queue on network error
-      this.eventQueue.unshift(...events)
+      this.eventQueue.unshift(...events);
     }
   }
 
@@ -163,9 +163,9 @@ export class TelemetryClient {
   startAutoFlush() {
     this.flushTimer = setInterval(() => {
       if (this.eventQueue.length > 0) {
-        this.flush()
+        this.flush();
       }
-    }, this.flushInterval)
+    }, this.flushInterval);
   }
 
   /**
@@ -173,10 +173,10 @@ export class TelemetryClient {
    */
   async stop() {
     if (this.flushTimer) {
-      clearInterval(this.flushTimer)
-      this.flushTimer = null
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
     }
-    await this.flush()
+    await this.flush();
   }
 
   /**
@@ -188,23 +188,23 @@ export class TelemetryClient {
       queueSize: this.eventQueue.length,
       enabled: this.enabled,
       elapsedMs: Date.now() - this.startTime,
-    }
+    };
   }
 }
 
 // Export singleton instance for use across app
-let telemetryInstance = null
+let telemetryInstance = null;
 
 export function getTelemetry(options = {}) {
   if (!telemetryInstance) {
-    telemetryInstance = new TelemetryClient(options)
+    telemetryInstance = new TelemetryClient(options);
   }
-  return telemetryInstance
+  return telemetryInstance;
 }
 
 export function resetTelemetry() {
   if (telemetryInstance) {
-    telemetryInstance.stop()
+    telemetryInstance.stop();
   }
-  telemetryInstance = null
+  telemetryInstance = null;
 }

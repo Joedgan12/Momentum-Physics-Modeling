@@ -1,18 +1,18 @@
-import React from 'react'
-import { TrendingUp, Clock, BarChart2 } from 'lucide-react'
+import React from 'react';
+import { TrendingUp, Clock, BarChart2 } from 'lucide-react';
 
 export default function QuickInsights({ simResults }) {
-  const topPerformers = simResults?.playerMomentum?.slice(0, 5) ?? []
+  const topPerformers = simResults?.playerMomentum?.slice(0, 5) ?? [];
 
-  const formGuides = simResults?.goalProbability != null
-    ? simResults.goalProbability > 0.05
-      ? ['W', 'W', 'D', 'W', 'D']
-      : ['D', 'D', 'W', 'D', 'L']
-    : ['—', '—', '—', '—', '—']
+  const formGuides =
+    simResults?.goalProbability != null
+      ? simResults.goalProbability > 0.05
+        ? ['W', 'W', 'D', 'W', 'D']
+        : ['D', 'D', 'W', 'D', 'L']
+      : ['—', '—', '—', '—', '—'];
 
   return (
     <div className="quick-insights">
-
       {/* Top Performers */}
       <div className="qi-section">
         <div className="qi-section-header">
@@ -26,13 +26,22 @@ export default function QuickInsights({ simResults }) {
               <div className={`performer-rank r${i + 1}`}>{i + 1}</div>
               <div className="performer-info">
                 <div className="performer-name">{p.name}</div>
-                <div className="performer-pos">{p.position} · {p.team === 'A' ? 'Team A' : 'Team B'}</div>
+                <div className="performer-pos">
+                  {p.position} · {p.team === 'A' ? 'Team A' : 'Team B'}
+                </div>
               </div>
               <div className="performer-score">{p.pmu.toFixed(1)}</div>
             </div>
           ))
         ) : (
-          <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 11 }}>
+          <div
+            style={{
+              padding: '10px 0',
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              fontSize: 11,
+            }}
+          >
             Run simulation to populate
           </div>
         )}
@@ -46,7 +55,9 @@ export default function QuickInsights({ simResults }) {
         </div>
         <div className="form-badges">
           {formGuides.map((f, i) => (
-            <div key={i} className={`form-badge ${f === '—' ? 'neutral' : f}`}>{f}</div>
+            <div key={i} className={`form-badge ${f === '—' ? 'neutral' : f}`}>
+              {f}
+            </div>
           ))}
         </div>
       </div>
@@ -66,11 +77,15 @@ export default function QuickInsights({ simResults }) {
             </div>
             <div className="qi-stat-row">
               <span className="qi-stat-key">Avg PMU</span>
-              <span className="qi-stat-val">{simResults.avgPMU != null ? simResults.avgPMU.toFixed(1) : '—'}</span>
+              <span className="qi-stat-val">
+                {simResults.avgPMU != null ? simResults.avgPMU.toFixed(1) : '—'}
+              </span>
             </div>
             <div className="qi-stat-row">
               <span className="qi-stat-key">Peak PMU</span>
-              <span className="qi-stat-val">{simResults.peakPMU != null ? simResults.peakPMU.toFixed(1) : '—'}</span>
+              <span className="qi-stat-val">
+                {simResults.peakPMU != null ? simResults.peakPMU.toFixed(1) : '—'}
+              </span>
             </div>
             <div className="qi-stat-row">
               <span className="qi-stat-key">Win % (A)</span>
@@ -97,17 +112,32 @@ export default function QuickInsights({ simResults }) {
               </span>
             </div>
 
-            <div style={{ marginTop: 8, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'right', letterSpacing: '0.06em' }}>
+            <div
+              style={{
+                marginTop: 8,
+                fontSize: 9,
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)',
+                textAlign: 'right',
+                letterSpacing: '0.06em',
+              }}
+            >
               UPDATED · NOW
             </div>
           </>
         ) : (
-          <div style={{ padding: '10px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 11 }}>
+          <div
+            style={{
+              padding: '10px 0',
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              fontSize: 11,
+            }}
+          >
             Awaiting simulation
           </div>
         )}
       </div>
-
     </div>
-  )
+  );
 }

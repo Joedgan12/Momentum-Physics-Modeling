@@ -2,12 +2,12 @@ name: Model Calibration Validation
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'backend/**'
       - '.github/workflows/calibration.yml'
   pull_request:
-    branches: [ main ]
+    branches: [main]
     paths:
       - 'backend/**'
       - '.github/workflows/calibration.yml'
@@ -23,58 +23,58 @@ jobs:
       matrix:
         python-version: ['3.11', '3.12']
     steps:
-    - uses: actions/checkout@v4
-    
-    - uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-    
-    - run: |
-        python -m pip install --upgrade pip
-        grep -v '^tensorflow' backend/requirements.txt > /tmp/ci-reqs.txt || true
-        pip install -r /tmp/ci-reqs.txt
-    
-    - run: |
-        cd backend
-        python << 'GENEOF'
-        from data.generators.synthetic_dataset import SyntheticDatasetGenerator
-        generator = SyntheticDatasetGenerator(seed=42)
-        dataset = generator.generate_dataset(num_matches=100)
-        generator.save_dataset(dataset, 'data/synthetic_matches.json')
-        print('Generated 100 synthetic matches')
-        GENEOF
-    
-    - run: |
-        cd backend
-        python << 'VALEOF'
-        import json
-        from momentum_sim.analysis.calibration import CalibrationValidator, create_simple_xg_predictor
+      - uses: actions/checkout@v4
 
-        with open('data/synthetic_matches.json') as f:
-            matches = json.load(f)
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
 
-        validator = CalibrationValidator()
-        predictor = create_simple_xg_predictor()
-        result = validator.cross_match_validation(matches, predictor, num_games=50)
+      - run: |
+          python -m pip install --upgrade pip
+          grep -v '^tensorflow' backend/requirements.txt > /tmp/ci-reqs.txt || true
+          pip install -r /tmp/ci-reqs.txt
 
-        r2 = result['metrics']['r_squared']
-        mape = result['metrics']['mape']
-        baseline_r2_target = 0.40
-        baseline_mape_target = 0.25
+      - run: |
+          cd backend
+          python << 'GENEOF'
+          from data.generators.synthetic_dataset import SyntheticDatasetGenerator
+          generator = SyntheticDatasetGenerator(seed=42)
+          dataset = generator.generate_dataset(num_matches=100)
+          generator.save_dataset(dataset, 'data/synthetic_matches.json')
+          print('Generated 100 synthetic matches')
+          GENEOF
 
-        print(f'R² Score: {r2:.4f} (baseline: ≥{baseline_r2_target:.2f}, production: ≥0.70)')
-        print(f'MAPE: {mape:.4f} (baseline: <{baseline_mape_target:.2f}, production: <0.30)')
+      - run: |
+          cd backend
+          python << 'VALEOF'
+          import json
+          from momentum_sim.analysis.calibration import CalibrationValidator, create_simple_xg_predictor
 
-        passed = (r2 >= baseline_r2_target) and (mape < baseline_mape_target)
-        print(f'Status: {"PASS" if passed else "FAIL"}')
-        exit(0 if passed else 1)
-        VALEOF
-    - name: Upload synthetic dataset
-      if: always()
-      uses: actions/upload-artifact@v3
-      with:
-        name: calibration-results-py${{ matrix.python-version }}
-        path: backend/data/synthetic_matches.json
+          with open('data/synthetic_matches.json') as f:
+              matches = json.load(f)
+
+          validator = CalibrationValidator()
+          predictor = create_simple_xg_predictor()
+          result = validator.cross_match_validation(matches, predictor, num_games=50)
+
+          r2 = result['metrics']['r_squared']
+          mape = result['metrics']['mape']
+          baseline_r2_target = 0.40
+          baseline_mape_target = 0.25
+
+          print(f'R² Score: {r2:.4f} (baseline: ≥{baseline_r2_target:.2f}, production: ≥0.70)')
+          print(f'MAPE: {mape:.4f} (baseline: <{baseline_mape_target:.2f}, production: <0.30)')
+
+          passed = (r2 >= baseline_r2_target) and (mape < baseline_mape_target)
+          print(f'Status: {"PASS" if passed else "FAIL"}')
+          exit(0 if passed else 1)
+          VALEOF
+      - name: Upload synthetic dataset
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: calibration-results-py${{ matrix.python-version }}
+          path: backend/data/synthetic_matches.json
 
   production-montecarlo:
     name: Production MonteCarlo (non-blocking)
@@ -154,4 +154,3 @@ jobs:
         with:
           name: montecarlo-results
           path: backend/data/synthetic_matches.json
-

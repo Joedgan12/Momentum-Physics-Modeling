@@ -48,13 +48,13 @@ try {
         tactic_b='balanced'
         iterations=20
     } | ConvertTo-Json
-    
+
     $result = Invoke-RestMethod -Uri 'http://127.0.0.1:5000/api/simulate' `
         -Method POST `
         -ContentType 'application/json' `
         -Body $body `
         -TimeoutSec 300
-    
+
     $elapsed = ((Get-Date) - $start).TotalSeconds
     Write-Host "  ✅ SUCCESS (${elapsed}s)" -ForegroundColor Green
     Write-Host "  Avg PMU: $([Math]::Round($result.data.avgPMU, 2))"

@@ -2,7 +2,7 @@ name: Calibration Debug
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - '.github/workflows/calibration-debug.yml'
       - '.github/workflows/calibration.yml'

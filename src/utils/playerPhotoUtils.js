@@ -10,36 +10,38 @@
  */
 export function getPlayerPhotoUrl(playerName, source = 'placeholder') {
   if (!playerName) {
-    return getPlaceholderPhoto()
+    return getPlaceholderPhoto();
   }
 
-  const nameParts = playerName.trim().split(' ')
-  const lastName = nameParts[nameParts.length - 1]
-  const firstName = nameParts[0]
+  const nameParts = playerName.trim().split(' ');
+  const lastName = nameParts[nameParts.length - 1];
+  const firstName = nameParts[0];
 
   // Multiple sources for player photos
-  const encodedName = encodeURIComponent(`${firstName} ${lastName}`)
-  
+  const encodedName = encodeURIComponent(`${firstName} ${lastName}`);
+
   switch (source) {
     case 'sofascore':
       // SofaScore is a sports data API, but direct photo URLs require API access
-      return `https://img.sofascore.com/api/v1/player/${encodeURIComponent(lastName.toLowerCase())}/image`
-    
+      return `https://img.sofascore.com/api/v1/player/${encodeURIComponent(
+        lastName.toLowerCase(),
+      )}/image`;
+
     case 'transfermarkt':
       // Transfermarkt style - player photo format
-      return `https://img.transfermarkt.eu/img/singleplayer/header/${lastName.toLowerCase()}_2024.jpg`
-    
+      return `https://img.transfermarkt.eu/img/singleplayer/header/${lastName.toLowerCase()}_2024.jpg`;
+
     case 'fbref':
       // Football Reference style
-      return `https://fbref.com/req/202401/scrapfly/images/players/${lastName.toLowerCase()}.jpg`
-    
+      return `https://fbref.com/req/202401/scrapfly/images/players/${lastName.toLowerCase()}.jpg`;
+
     case 'fluentui':
       // Use Fluent UI avatar with initials as fallback
-      const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
-      return getAvatarInitials(initials)
-    
+      const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+      return getAvatarInitials(initials);
+
     default:
-      return getPlaceholderPhoto()
+      return getPlaceholderPhoto();
   }
 }
 
@@ -52,31 +54,31 @@ export function getPlayerPhotoUrl(playerName, source = 'placeholder') {
 export function getAvatarInitials(initials, color = null) {
   // Generate a deterministic color based on the initials
   const hash = initials.split('').reduce((acc, char) => {
-    return char.charCodeAt(0) + ((acc << 5) - acc)
-  }, 0)
-  
-  const hue = Math.abs(hash) % 360
-  const backgroundColor = color || `hsl(${hue}, 70%, 55%)`
-  
+    return char.charCodeAt(0) + ((acc << 5) - acc);
+  }, 0);
+
+  const hue = Math.abs(hash) % 360;
+  const backgroundColor = color || `hsl(${hue}, 70%, 55%)`;
+
   // Create a canvas to render the avatar
-  const canvas = document.createElement('canvas')
-  canvas.width = 200
-  canvas.height = 200
-  
-  const ctx = canvas.getContext('2d')
-  
+  const canvas = document.createElement('canvas');
+  canvas.width = 200;
+  canvas.height = 200;
+
+  const ctx = canvas.getContext('2d');
+
   // Draw background
-  ctx.fillStyle = backgroundColor
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  
+  ctx.fillStyle = backgroundColor;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
   // Draw text
-  ctx.fillStyle = 'white'
-  ctx.font = 'bold 80px Inter, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(initials, canvas.width / 2, canvas.height / 2)
-  
-  return canvas.toDataURL()
+  ctx.fillStyle = 'white';
+  ctx.font = 'bold 80px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(initials, canvas.width / 2, canvas.height / 2);
+
+  return canvas.toDataURL();
 }
 
 /**
@@ -98,8 +100,8 @@ export function getPlaceholderPhoto() {
       <path d="M 60 180 Q 60 120 100 120 Q 140 120 140 180" fill="rgba(255,255,255,0.8)"/>
       <text x="100" y="195" font-size="16" font-weight="bold" text-anchor="middle" fill="rgba(30,60,120,0.6)">PLAYER</text>
     </svg>
-  `
-  return `data:image/svg+xml;base64,${btoa(svg)}`
+  `;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
 /**
@@ -109,30 +111,31 @@ export function getPlaceholderPhoto() {
  */
 export function getTeamCrestUrl(teamName) {
   if (!teamName) {
-    return getPlaceholderCrest()
+    return getPlaceholderCrest();
   }
 
-  const nameNormalized = teamName.toLowerCase().trim()
-  
+  const nameNormalized = teamName.toLowerCase().trim();
+
   // Map common team names to their crests
   const teamCrests = {
     'manchester city': 'https://resources.premierleague.com/premierleague/badges/70.svg',
     'manchester united': 'https://resources.premierleague.com/premierleague/badges/1.svg',
-    'liverpool': 'https://resources.premierleague.com/premierleague/badges/14.svg',
-    'arsenal': 'https://resources.premierleague.com/premierleague/badges/1.svg',
-    'tottenham': 'https://resources.premierleague.com/premierleague/badges/6.svg',
-    'chelsea': 'https://resources.premierleague.com/premierleague/badges/8.svg',
-    'real madrid': 'https://b.zmhivatalos.hu/images/imgoptimize/faf25141-7db3-4b4c-9c76-4b4b4b4b4b4b',
-    'barcelona': 'https://www.fcbarcelona.com/static/img/logo-large.png',
-  }
-  
+    liverpool: 'https://resources.premierleague.com/premierleague/badges/14.svg',
+    arsenal: 'https://resources.premierleague.com/premierleague/badges/1.svg',
+    tottenham: 'https://resources.premierleague.com/premierleague/badges/6.svg',
+    chelsea: 'https://resources.premierleague.com/premierleague/badges/8.svg',
+    'real madrid':
+      'https://b.zmhivatalos.hu/images/imgoptimize/faf25141-7db3-4b4c-9c76-4b4b4b4b4b4b',
+    barcelona: 'https://www.fcbarcelona.com/static/img/logo-large.png',
+  };
+
   for (const [team, url] of Object.entries(teamCrests)) {
     if (nameNormalized.includes(team) || team.includes(nameNormalized)) {
-      return url
+      return url;
     }
   }
-  
-  return getPlaceholderCrest()
+
+  return getPlaceholderCrest();
 }
 
 /**
@@ -146,8 +149,8 @@ export function getPlaceholderCrest() {
       <circle cx="50" cy="50" r="35" fill="none" stroke="#6b7280" stroke-width="2"/>
       <text x="50" y="55" font-size="12" font-weight="bold" text-anchor="middle" fill="#374151">TEAM</text>
     </svg>
-  `
-  return `data:image/svg+xml;base64,${btoa(svg)}`
+  `;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
 /**
@@ -156,28 +159,31 @@ export function getPlaceholderCrest() {
  * @param {Array} sources - Array of sources to try in order
  * @returns {Promise<string>} Photo URL
  */
-export async function fetchPlayerPhotoWithFallback(playerName, sources = ['sofascore', 'transfermarkt', 'placeholder']) {
-  let lastError = null
-  
+export async function fetchPlayerPhotoWithFallback(
+  playerName,
+  sources = ['sofascore', 'transfermarkt', 'placeholder'],
+) {
+  let lastError = null;
+
   for (const source of sources) {
     try {
-      const url = getPlayerPhotoUrl(playerName, source)
-      
+      const url = getPlayerPhotoUrl(playerName, source);
+
       // Test if URL is valid (only works for same-origin requests)
       if (source === 'placeholder') {
-        return url
+        return url;
       }
-      
+
       // For cross-origin, just return the URL (browser will handle 404)
-      return url
+      return url;
     } catch (error) {
-      lastError = error
-      continue
+      lastError = error;
+      continue;
     }
   }
-  
+
   // If all sources fail, return placeholder
-  return getPlaceholderPhoto()
+  return getPlaceholderPhoto();
 }
 
 /**
@@ -191,12 +197,12 @@ export function getPlayerCardData(player, options = {}) {
     includePhoto = true,
     includeTeamCrest = true,
     photoSize = 'medium', // 'small', 'medium', 'large'
-  } = options
+  } = options;
 
   return {
     ...player,
     photoUrl: includePhoto ? getPlayerPhotoUrl(player.name) : null,
     teamCrestUrl: includeTeamCrest ? getTeamCrestUrl(player.team) : null,
     photoSize,
-  }
+  };
 }
