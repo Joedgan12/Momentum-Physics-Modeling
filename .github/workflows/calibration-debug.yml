@@ -1,0 +1,42 @@
+name: Calibration Debug
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/calibration-debug.yml'
+      - '.github/workflows/calibration.yml'
+  workflow_dispatch: {}
+
+jobs:
+  debug:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Print runner & GitHub env
+        run: |
+          echo "RUNNER_OS=$RUNNER_OS"
+          echo "GITHUB_WORKFLOW=$GITHUB_WORKFLOW"
+          echo "GITHUB_EVENT_NAME=$GITHUB_EVENT_NAME"
+          echo "GITHUB_REF=$GITHUB_REF"
+          echo "GITHUB_SHA=$GITHUB_SHA"
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          uname -a || true
+          python --version || true
+          env | sort | grep -E '^GITHUB|^RUNNER' || true
+
+      - name: List workspace and workflows
+        run: |
+          pwd
+          ls -la
+          echo '--- .github/workflows ---'
+          ls -la .github/workflows || true
+
+      - name: Show top of calibration.yml
+        run: |
+          sed -n '1,200p' .github/workflows/calibration.yml || true
+
+      - name: Debug complete
+        run: echo "calibration-debug: complete"
