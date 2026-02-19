@@ -31,7 +31,7 @@ generator = SyntheticDatasetGenerator(seed=42)
 dataset = generator.generate_dataset(num_matches=100)
 generator.save_dataset(dataset, 'data/synthetic_matches.json')
 print('Generated 100 synthetic matches')
-        GENEOF
+GENEOF
     
     - run: |
         cd backend
@@ -57,6 +57,6 @@ print(f'MAPE: {mape:.4f} (baseline: <{baseline_mape_target:.2f}, production: <0.
 passed = (r2 >= baseline_r2_target) and (mape < baseline_mape_target)
 print(f'Status: {\"PASS\" if passed else \"FAIL\"}')
 exit(0 if passed else 1)
-        VALEOF
+VALEOF
 
 
