@@ -39,4 +39,4 @@ jobs:
           sed -n '1,200p' .github/workflows/calibration.yml || true
 
       - name: Debug complete
-        run: echo "calibration-debug: complete"
+        run: 'echo "calibration-debug: complete"'
