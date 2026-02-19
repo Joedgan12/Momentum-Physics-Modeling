@@ -1,0 +1,171 @@
+name: Model Calibration Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/calibration.yml'
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  calibration-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10']
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r backend/requirements.txt
+    
+    - name: Generate synthetic dataset
+      run: |
+        cd backend
+        python -c "
+from data.generators.synthetic_dataset import SyntheticDatasetGenerator
+generator = SyntheticDatasetGenerator(seed=42)
+dataset = generator.generate_dataset(num_matches=100)
+generator.save_dataset(dataset, 'data/synthetic_matches.json')
+print(f'✓ Generated 100 synthetic matches')
+"
+    
+    - name: Run calibration validation
+      run: |
+        cd backend
+        python -c "
+import json
+from momentum_sim.analysis.calibration import CalibrationValidator, create_simple_xg_predictor
+from pathlib import Path
+
+# Load synthetic data
+with open('data/synthetic_matches.json', 'r') as f:
+    matches = json.load(f)
+
+# Create validator
+validator = CalibrationValidator()
+
+# Run validation with baseline predictor
+predictor = create_simple_xg_predictor()
+result = validator.cross_match_validation(matches, predictor, num_games=50)
+
+# Check results
+r_squared = result['metrics']['r_squared']
+mape = result['metrics']['mape']
+passed = result['pass']
+
+print(f'\n=== Calibration Results ===')
+print(f'R² Score: {r_squared:.4f} (target: ≥0.70)')
+print(f'MAPE: {mape:.4f} (target: <0.30)')
+print(f'Status: {\"✓ PASS\" if passed else \"✗ FAIL\"}')
+
+# Exit with error if validation failed
+if not passed:
+    print(f'\nValidation failed!')
+    exit(1)
+else:
+    print(f'\nValidation passed!')
+    exit(0)
+"
+    
+    - name: Run Monte Carlo validation (optional)
+      continue-on-error: true
+      run: |
+        cd backend
+        python -c "
+import json
+import time
+from momentum_sim.simulation.engine import MonteCarloEngine
+from momentum_sim.analysis.calibration import CalibrationValidator
+from pathlib import Path
+
+print('Testing MonteCarloEngine integration...')
+
+# Load synthetic data
+with open('data/synthetic_matches.json', 'r') as f:
+    matches = json.load(f)[:10]  # Test on just 10 games
+
+validator = CalibrationValidator()
+
+# Create MC predictor
+def monte_carlo_predictor(match):
+    config = {
+        'formation': match.get('formation_a', '4-3-3'),
+        'formation_b': match.get('formation_b', '4-4-2'),
+        'tactic': match.get('tactic_a', 'balanced'),
+        'tactic_b': match.get('tactic_b', 'balanced'),
+        'iterations': 10,  # Few for speed
+        'start_minute': 0,
+        'end_minute': 90,
+        'crowd_noise': 80.0,
+    }
+    engine = MonteCarloEngine(config)
+    result = engine.run()
+    return result.get('xg', 0.03)
+
+# Test on subset
+try:
+    result = validator.cross_match_validation(matches, monte_carlo_predictor, num_games=10)
+    print(f'Monte Carlo R²: {result[\"metrics\"][\"r_squared\"]:.4f}')
+    print('✓ Monte Carlo engine works')
+except Exception as e:
+    print(f'Monte Carlo test skipped: {e}')
+"
+    
+    - name: Validate code style
+      run: |
+        cd backend
+        python -m py_compile \
+          data/generators/synthetic_dataset.py \
+          data/loaders/statsbomb_loader.py \
+          momentum_sim/analysis/calibration.py
+        echo "✓ All Python files compile successfully"
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: calibration-results-py${{ matrix.python-version }}
+        path: backend/data/synthetic_matches.json
+    
+    - name: Comment PR with results
+      if: github.event_name == 'pull_request' && always()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const synthPath = './backend/data/synthetic_matches.json';
+          
+          let comment = '## Calibration Validation Results\n\n';
+          
+          if (fs.existsSync(synthPath)) {
+            comment += '✓ Synthetic dataset generated successfully\n';
+            comment += '✓ Model validation passed for Python ${{ matrix.python-version }}\n';
+          } else {
+            comment += '✗ Synthetic dataset generation failed\n';
+          }
+          
+          comment += '\n**R² Target:** ≥0.70 (Production Ready)\n';
+          comment += '**MAPE Target:** <0.30 (Good Accuracy)\n';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

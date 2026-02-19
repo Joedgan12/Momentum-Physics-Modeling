@@ -1,0 +1,418 @@
+{
+  "data": {
+    "allPlayerStats": [
+      {
+        "consistency": 0.64,
+        "id": "A10",
+        "name": "L. Dunk",
+        "pmu": 40.98,
+        "position": "DEF",
+        "resilience_tier": "veteran",
+        "std": 14.88,
+        "team": "A"
+      },
+      {
+        "consistency": 0.73,
+        "id": "B4",
+        "name": "T. Koulibaly",
+        "pmu": 36.88,
+        "position": "DEF",
+        "resilience_tier": "veteran",
+        "std": 10.12,
+        "team": "B"
+      },
+      {
+        "consistency": 0.75,
+        "id": "A3",
+        "name": "V. van Dijk",
+        "pmu": 35.47,
+        "position": "DEF",
+        "resilience_tier": "veteran",
+        "std": 9.04,
+        "team": "A"
+      },
+      {
+        "consistency": 0.66,
+        "id": "A2",
+        "name": "K. De Bruyne",
+        "pmu": 35.4,
+        "position": "MID",
+        "resilience_tier": "veteran",
+        "std": 12.04,
+        "team": "A"
+      },
+      {
+        "consistency": 0.69,
+        "id": "B3",
+        "name": "R. Dias",
+        "pmu": 34.39,
+        "position": "DEF",
+        "resilience_tier": "veteran",
+        "std": 10.75,
+        "team": "B"
+      },
+      {
+        "consistency": 0.64,
+        "id": "B2",
+        "name": "B. Fernandes",
+        "pmu": 28.06,
+        "position": "MID",
+        "resilience_tier": "veteran",
+        "std": 10.04,
+        "team": "B"
+      },
+      {
+        "consistency": 0.77,
+        "id": "A5",
+        "name": "H. Kane",
+        "pmu": 27.18,
+        "position": "FWD",
+        "resilience_tier": "veteran",
+        "std": 6.31,
+        "team": "A"
+      },
+      {
+        "consistency": 0.75,
+        "id": "A1",
+        "name": "M. Salah",
+        "pmu": 25.12,
+        "position": "FWD",
+        "resilience_tier": "veteran",
+        "std": 6.2,
+        "team": "A"
+      },
+      {
+        "consistency": 0.74,
+        "id": "A7",
+        "name": "R. James",
+        "pmu": 20.94,
+        "position": "DEF",
+        "resilience_tier": "experienced",
+        "std": 5.52,
+        "team": "A"
+      },
+      {
+        "consistency": 0.81,
+        "id": "A4",
+        "name": "T. Alexander-Arnold",
+        "pmu": 17.62,
+        "position": "DEF",
+        "resilience_tier": "experienced",
+        "std": 3.27,
+        "team": "A"
+      },
+      {
+        "consistency": 0.78,
+        "id": "A9",
+        "name": "P. Foden",
+        "pmu": 17.45,
+        "position": "MID",
+        "resilience_tier": "experienced",
+        "std": 3.88,
+        "team": "A"
+      },
+      {
+        "consistency": 0.8,
+        "id": "B8",
+        "name": "T. Hernandez",
+        "pmu": 17.24,
+        "position": "DEF",
+        "resilience_tier": "experienced",
+        "std": 3.43,
+        "team": "B"
+      },
+      {
+        "consistency": 0.8,
+        "id": "A8",
+        "name": "D. Rice",
+        "pmu": 16.84,
+        "position": "MID",
+        "resilience_tier": "experienced",
+        "std": 3.36,
+        "team": "A"
+      },
+      {
+        "consistency": 0.8,
+        "id": "B6",
+        "name": "V. Osimhen",
+        "pmu": 16.73,
+        "position": "FWD",
+        "resilience_tier": "experienced",
+        "std": 3.4,
+        "team": "B"
+      },
+      {
+        "consistency": 0.82,
+        "id": "B7",
+        "name": "F. de Jong",
+        "pmu": 16.34,
+        "position": "MID",
+        "resilience_tier": "experienced",
+        "std": 2.96,
+        "team": "B"
+      },
+      {
+        "consistency": 0.84,
+        "id": "B9",
+        "name": "K. Havertz",
+        "pmu": 16.21,
+        "position": "FWD",
+        "resilience_tier": "experienced",
+        "std": 2.62,
+        "team": "B"
+      },
+      {
+        "consistency": 0.76,
+        "id": "B5",
+        "name": "J. Bellingham",
+        "pmu": 15.82,
+        "position": "MID",
+        "resilience_tier": "experienced",
+        "std": 3.77,
+        "team": "B"
+      },
+      {
+        "consistency": 0.9,
+        "id": "A6",
+        "name": "B. Saka",
+        "pmu": 15.54,
+        "position": "FWD",
+        "resilience_tier": "young",
+        "std": 1.5,
+        "team": "A"
+      },
+      {
+        "consistency": 0.86,
+        "id": "B1",
+        "name": "E. Haaland",
+        "pmu": 14.95,
+        "position": "FWD",
+        "resilience_tier": "young",
+        "std": 2.05,
+        "team": "B"
+      },
+      {
+        "consistency": 0.82,
+        "id": "B10",
+        "name": "E. Camavinga",
+        "pmu": 13.45,
+        "position": "MID",
+        "resilience_tier": "young",
+        "std": 2.48,
+        "team": "B"
+      },
+      {
+        "consistency": 0.48,
+        "id": "B11",
+        "name": "E. Mendy",
+        "pmu": 8.95,
+        "position": "GK",
+        "resilience_tier": "veteran",
+        "std": 4.62,
+        "team": "B"
+      },
+      {
+        "consistency": 0.61,
+        "id": "A11",
+        "name": "A. Ramsdale",
+        "pmu": 4.38,
+        "position": "GK",
+        "resilience_tier": "experienced",
+        "std": 1.73,
+        "team": "A"
+      }
+    ],
+    "avgFatigue_A": 22.9,
+    "avgFatigue_B": 25.46,
+    "avgPMU": 21.63,
+    "avgPMU_A": 23.36,
+    "avgPMU_B": 19.91,
+    "config": {
+      "crowd_noise": 80.0,
+      "end_minute": 90,
+      "formation": "4-3-3",
+      "formation_b": "4-4-2",
+      "iterations": 20,
+      "scenario": "Baseline",
+      "start_minute": 0,
+      "tactic": "possession",
+      "tactic_b": "balanced"
+    },
+    "elapsed_seconds": 15.911,
+    "formationCoherence": {
+      "A": 0.6899,
+      "B": 0.6623
+    },
+    "goalProbDistribution": {
+      "0-10%": 1.0,
+      "10-25%": 0.0,
+      "25-40%": 0.0,
+      "40%+": 0.0
+    },
+    "goalProbability": 0.0229,
+    "iterations": 20,
+    "outcomeDistribution": {
+      "draws": 0.95,
+      "teamA_wins": 0.05,
+      "teamB_wins": 0.0
+    },
+    "peakPMU": 70.12,
+    "playerMomentum": [
+      {
+        "consistency": 0.64,
+        "id": "A10",
+        "name": "L. Dunk",
+        "pmu": 40.98,
+        "position": "DEF",
+        "resilience_tier": "veteran",
+        "std": 14.88,
+        "team": "A"
+      },
+      {
+        "consistency": 0.73,
+        "id": "B4",
+        "name": "T. Koulibaly",
+        "pmu": 36.88,
+        "position": "DEF",
+        "resilience_tier": "veteran",
+        "std": 10.12,
+        "team": "B"
+      },
+      {
+        "consistency": 0.75,
+        "id": "A3",
+        "name": "V. van Dijk",
+        "pmu": 35.47,
+        "position": "DEF",
+        "resilience_tier": "veteran",
+        "std": 9.04,
+        "team": "A"
+      },
+      {
+        "consistency": 0.66,
+        "id": "A2",
+        "name": "K. De Bruyne",
+        "pmu": 35.4,
+        "position": "MID",
+        "resilience_tier": "veteran",
+        "std": 12.04,
+        "team": "A"
+      },
+      {
+        "consistency": 0.69,
+        "id": "B3",
+        "name": "R. Dias",
+        "pmu": 34.39,
+        "position": "DEF",
+        "resilience_tier": "veteran",
+        "std": 10.75,
+        "team": "B"
+      },
+      {
+        "consistency": 0.64,
+        "id": "B2",
+        "name": "B. Fernandes",
+        "pmu": 28.06,
+        "position": "MID",
+        "resilience_tier": "veteran",
+        "std": 10.04,
+        "team": "B"
+      },
+      {
+        "consistency": 0.77,
+        "id": "A5",
+        "name": "H. Kane",
+        "pmu": 27.18,
+        "position": "FWD",
+        "resilience_tier": "veteran",
+        "std": 6.31,
+        "team": "A"
+      },
+      {
+        "consistency": 0.75,
+        "id": "A1",
+        "name": "M. Salah",
+        "pmu": 25.12,
+        "position": "FWD",
+        "resilience_tier": "veteran",
+        "std": 6.2,
+        "team": "A"
+      },
+      {
+        "consistency": 0.74,
+        "id": "A7",
+        "name": "R. James",
+        "pmu": 20.94,
+        "position": "DEF",
+        "resilience_tier": "experienced",
+        "std": 5.52,
+        "team": "A"
+      },
+      {
+        "consistency": 0.81,
+        "id": "A4",
+        "name": "T. Alexander-Arnold",
+        "pmu": 17.62,
+        "position": "DEF",
+        "resilience_tier": "experienced",
+        "std": 3.27,
+        "team": "A"
+      }
+    ],
+    "probability_outcomes": {
+      "draw_probability": 95.0,
+      "expected_goals_team_a": 0.02,
+      "expected_goals_team_b": 0.01,
+      "momentum_advantage_team_a": 3.45,
+      "team_a_win_probability": 5.0,
+      "team_b_win_probability": 0.0
+    },
+    "recommendations": [
+      {
+        "action": "Adopt more offensive tactic or formation to break deadlock",
+        "priority": "MEDIUM",
+        "rationale": "Draw probability is very high (95%)"
+      }
+    ],
+    "request_id": "3582fad2",
+    "risk_assessment": {
+      "counterattack_exposure": 5,
+      "high_quality_chance": 3.0,
+      "overall_risk_level": "LOW",
+      "shot_probability": 5.7,
+      "turnover_risk": 13.0
+    },
+    "scoreDistribution": {
+      "avg_goals_a": 0.05,
+      "avg_goals_b": 0,
+      "std_goals_a": 0.22,
+      "std_goals_b": 0.0
+    },
+    "tactical_impact": {
+      "defensive_imbalance_score": 0.13,
+      "press_vulnerability": "LOW",
+      "space_exploitation_rating": "LOW",
+      "xg_impact": -0.006,
+      "xg_impact_interpretation": "-0.6% xG decrease"
+    },
+    "teamAPressure": {
+      "offBall": 0.2322,
+      "possession": 0.4356,
+      "transition": 0.3496
+    },
+    "teamBPressure": {
+      "offBall": 0.301,
+      "possession": 0.3122,
+      "transition": 0.3222
+    },
+    "weakness_map": {
+      "exploitable_zones": [],
+      "fatigue_risk_high_after_minute": 80,
+      "structural_weaknesses": [
+        "None detected"
+      ]
+    },
+    "xg": 0.067
+  },
+  "ok": true
+}
