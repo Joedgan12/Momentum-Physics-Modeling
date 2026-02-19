@@ -69,12 +69,12 @@ jobs:
         print(f'Status: {"PASS" if passed else "FAIL"}')
         exit(0 if passed else 1)
         VALEOF
-      - name: Upload synthetic dataset
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: calibration-results-py${{ matrix.python-version }}
-          path: backend/data/synthetic_matches.json
+    - name: Upload synthetic dataset
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: calibration-results-py${{ matrix.python-version }}
+        path: backend/data/synthetic_matches.json
 
   production-montecarlo:
     name: Production MonteCarlo (non-blocking)
