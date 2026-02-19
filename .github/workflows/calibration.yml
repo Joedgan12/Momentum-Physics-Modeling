@@ -129,8 +129,8 @@ except Exception as e:
             comment += '✗ Synthetic dataset generation failed\n';
           }
           
-          comment += '\n**R² Target:** ≥0.70 (Production Ready)\n';
-          comment += '**MAPE Target:** <0.30 (Good Accuracy)\n';
+          comment += '\n**R² Target (baseline):** ≥0.40 — **Production:** ≥0.70\n';
+          comment += '**MAPE Target (baseline):** <0.25 — **Production:** <0.30\n';
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
