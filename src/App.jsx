@@ -91,8 +91,11 @@ export default function App() {
     }
   }, [selectedFormation, selectedTactic, scenario, iterations]);
 
+
+
   const renderPage = () => {
     switch (activeTab) {
+
       case 'Overview':
         return (
           <Overview
