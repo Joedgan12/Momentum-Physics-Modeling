@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getPlayerPhotoUrl, getAvatarInitials } from '../utils/playerPhotoUtils';
+import { getPlayerPhotoUrl } from '../utils/playerPhotoUtils';
 
 export default function PlayerCard({
   player,
@@ -16,6 +16,7 @@ export default function PlayerCard({
   };
 
   const size = photoSizes[photoSize] || photoSizes.medium;
+
   const initials = player.name
     ? `${player.name.split(' ')[0].charAt(0)}${player.name
         .split(' ')
@@ -39,8 +40,8 @@ export default function PlayerCard({
         {showPhoto && (
           <div
             style={{
-              width: '40px',
-              height: '40px',
+              width: size.width,
+              height: size.height,
               borderRadius: '6px',
               overflow: 'hidden',
               flexShrink: 0,
@@ -48,6 +49,7 @@ export default function PlayerCard({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              fontSize: size.fontSize,
             }}
           >
             {!photoError ? (

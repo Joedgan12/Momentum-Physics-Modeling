@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Send, Plus, Minus, CheckCircle, AlertCircle, Sliders } from 'lucide-react';
 import AICoach from '../components/AICoach';
 import QuickInsights from '../components/QuickInsights';
@@ -516,7 +516,6 @@ function CustomBuilder({ onApply }) {
 // ─── main page ───────────────────────────────────────────────────────────────
 export default function Formations({ selectedFormation, onFormationChange, simResults }) {
   const [tab, setTab] = useState('presets'); // 'presets' | 'custom'
-  const [customCoherence, setCustomCoherence] = useState(null);
 
   const isPreset = selectedFormation in PRESET_FORMATIONS;
   const currentDetails = PRESET_FORMATIONS[selectedFormation];
@@ -541,7 +540,6 @@ export default function Formations({ selectedFormation, onFormationChange, simRe
 
   function handleApplyCustom(formationStr) {
     onFormationChange(formationStr);
-    setCustomCoherence(computeLocalCoherence(formationStr));
     setTab('presets'); // show pitch after applying
   }
 

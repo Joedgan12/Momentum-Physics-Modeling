@@ -156,7 +156,6 @@ class ScenarioStore:
 
             if tags and len(tags) > 0:
                 # Filter by any matching tag
-                placeholders = ",".join("?" * len(tags))
                 query = f"""
                     SELECT id, name, description, formation_a, formation_b,
                            tactic_a, tactic_b, created_at, tags

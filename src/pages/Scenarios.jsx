@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Trash2, Plus, Eye, Calendar, Tag, GitCompare } from 'lucide-react';
+import { Trash2, Eye, Calendar, GitCompare } from 'lucide-react';
 import AICoach from '../components/AICoach';
 import QuickInsights from '../components/QuickInsights';
 

@@ -2,8 +2,6 @@ import React from 'react';
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -31,7 +29,7 @@ export default function Match({ simResults, selectedFormation, selectedTactic })
         <div className="empty-state">
           <div className="empty-icon">⚽</div>
           <h3>No Simulation Data</h3>
-          <p>Go to Overview and click "Run Simulation" to analyze a match</p>
+          <p>Go to Overview and click &quot;Run Simulation&quot; to analyze a match</p>
         </div>
       </div>
     );
@@ -72,8 +70,6 @@ export default function Match({ simResults, selectedFormation, selectedTactic })
     { team: 'Team A', xg: simResults.xg_a || simResults.xg * 0.6 },
     { team: 'Team B', xg: simResults.xg_b || simResults.xg * 0.4 },
   ];
-
-  const COLORS = ['var(--team-a)', 'var(--violet)', 'var(--team-b)'];
 
   return (
     <div className="page-container">
@@ -224,7 +220,7 @@ export default function Match({ simResults, selectedFormation, selectedTactic })
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, value }) => `${value}%`}
+                      label={({ value }) => `${value}%`}
                       outerRadius={70}
                       fill="var(--plasma)"
                       dataKey="value"

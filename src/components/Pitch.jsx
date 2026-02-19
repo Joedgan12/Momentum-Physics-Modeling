@@ -1,9 +1,5 @@
-import React, { useRef, useEffect, useState } from 'react';
-import {
-  shortenPlayerName,
-  getPlayerAbbreviation,
-  detectSimilarNames,
-} from '../utils/playerNameUtils';
+import React, { useState } from 'react';
+import { shortenPlayerName, getPlayerAbbreviation } from '../utils/playerNameUtils';
 
 /* ── Field constants ── */
 const FW = 105; // metres as SVG units
@@ -142,12 +138,7 @@ const B_COL = '#f472b6'; /* pink  */
 const pR = (pmu) => Math.max(1.0, 1.0 + (pmu / 100) * 1.8);
 const hR = (pmu) => Math.max(7, 7 + (pmu / 100) * 22);
 
-export default function Pitch({
-  players = [],
-  teamAPressure = {},
-  teamBPressure = {},
-  showHeat = true,
-}) {
+export default function Pitch({ players = [], showHeat = true }) {
   const roster = players?.length ? players : DEMO_PLAYERS;
 
   /* top-3 per team for heatspot rendering */

@@ -1,16 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import { TrendingUp, TrendingDown, Target, AlertTriangle, Award } from 'lucide-react';
+import { Award, AlertTriangle } from 'lucide-react';
 
-export default function Counterfactual({
-  selectedFormation,
-  selectedTactic,
-  onFormationChange,
-  onTacticChange,
-  iterations,
-  onIterationsChange,
-  playbackSpeed,
-  onPlaybackSpeedChange,
-}) {
+export default function Counterfactual({ iterations, onIterationsChange }) {
   const [sweepResults, setSweepResults] = useState(null);
   const [sweepRunning, setSweepRunning] = useState(false);
   const [sweepError, setSweepError] = useState(null);
@@ -58,7 +49,7 @@ export default function Counterfactual({
     const icon = value > 0 ? '↑' : value < 0 ? '↓' : '→';
     return (
       <span style={{ color }}>
-        {icon} {isRisk ? value.toFixed(1) : Math.abs(value).toFixed(3)}
+        {icon} {isRisk ? value.toFixed(1) : absVal.toFixed(3)}
       </span>
     );
   };

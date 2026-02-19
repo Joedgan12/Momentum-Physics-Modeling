@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ChevronDown, Bell, Settings } from 'lucide-react';
 
 export default function TopBar({
@@ -10,7 +10,7 @@ export default function TopBar({
   onNotificationsClick,
 }) {
   const scenarios = ['Baseline', 'Aggressive', 'Defensive', 'Possession', 'Counter'];
-  const [notificationBadgeCount, setNotificationBadgeCount] = useState(0);
+  const notificationBadgeCount = 0;
 
   const avgPMU = simResults?.avgPMU?.toFixed(1) ?? '—';
   const xg = simResults?.xg ?? '—';

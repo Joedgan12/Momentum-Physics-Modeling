@@ -1,16 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  VolumeX,
-  Camera,
-  Download,
-  FileJson,
-  X,
-} from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Camera, FileJson } from 'lucide-react';
 import '../styles/Playback.css';
 
 export default function Playback({ simResults }) {
@@ -480,7 +469,7 @@ export default function Playback({ simResults }) {
                 className="timeline-slider"
               />
               <div className="timeline-info">
-                <span>{currentFrameData?.minute || 0}'</span>
+                <span>{currentFrameData?.minute || 0}&apos;</span>
                 <span>
                   {currentFrame} / {(playbackData?.playback_data?.total_frames || 1) - 1}
                 </span>
@@ -691,7 +680,7 @@ export default function Playback({ simResults }) {
               style={{ background: 'rgba(245,158,11,0.08)', borderLeftColor: 'var(--flare)' }}
             >
               <h4 style={{ color: 'var(--flare)', margin: '0 0 8px 0' }}>
-                Events at {currentFrameData?.minute || 0}'
+                Events at {currentFrameData?.minute || 0}&apos;
               </h4>
               <div
                 style={{
@@ -797,7 +786,7 @@ export default function Playback({ simResults }) {
                       {snap.title}
                     </div>
                     <div style={{ color: 'var(--text-muted)', fontSize: '10px', marginTop: '2px' }}>
-                      @ {snap.minute}'
+                      @ {snap.minute}&apos;
                     </div>
                   </div>
                 ))}
@@ -824,8 +813,9 @@ export default function Playback({ simResults }) {
             <p
               style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.6' }}
             >
-              Click "Unity Export" to download playback data compatible with Unity 3D. Import as
-              JSON to visualize player positions, momentum heatmaps, and overlay tactical analysis.
+              Click &quot;Unity Export&quot; to download playback data compatible with Unity 3D.
+              Import as JSON to visualize player positions, momentum heatmaps, and overlay tactical
+              analysis.
             </p>
           </div>
         </div>

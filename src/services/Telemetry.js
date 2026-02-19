@@ -147,7 +147,7 @@ export class TelemetryClient {
         // Re-queue on failure
         this.eventQueue.unshift(...events);
       } else {
-        const data = await response.json();
+        await response.json();
         console.log(`[Telemetry] Flushed ${events.length} events`);
       }
     } catch (err) {

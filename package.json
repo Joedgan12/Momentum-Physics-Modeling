@@ -9,8 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "npx prettier --check 'src/**/*.{js,jsx,css,json,md}' && echo 'ESLint (optional): run npm run lint:js or use pre-commit'",
-    "lint:js": "npx eslint --config .eslintrc.cjs 'src/**/*.{js,jsx}' --ext .js,.jsx",
-    "lint:fix": "npx eslint --config .eslintrc.cjs 'src/**/*.{js,jsx}' --fix",
+    "lint:js": "npx eslint --config .eslintrc.cjs src --ext .js,.jsx",
+    "lint:fix": "npx eslint --config .eslintrc.cjs src --ext .js,.jsx --fix",
     "format": "npx prettier --write 'src/**/*.{js,jsx,css,json,md}'",
     "format:check": "npx prettier --check 'src/**/*.{js,jsx,css,json,md}'"
   },

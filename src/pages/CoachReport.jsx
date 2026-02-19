@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Download, Award, TrendingUp, Zap } from 'lucide-react';
+import { Award, TrendingUp, Zap } from 'lucide-react';
 import AICoach from '../components/AICoach';
 import QuickInsights from '../components/QuickInsights';
 
@@ -163,6 +163,11 @@ export default function CoachReport({ simResults }) {
               marginBottom: '18px',
             }}
           >
+            {rolloutLoading && (
+              <div style={{ gridColumn: '1 / -1', color: 'var(--text-muted)', fontSize: 12 }}>
+                Fetching rollouts…
+              </div>
+            )}
             {[
               {
                 label: 'Avg PMU (A)',

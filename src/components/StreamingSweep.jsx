@@ -19,7 +19,7 @@ const riskColor = (level) =>
 const deltaColor = (v) => (v > 0 ? 'var(--plasma)' : v < 0 ? 'var(--danger)' : 'var(--text-muted)');
 const deltaSign = (v) => (v > 0 ? '+' : '');
 
-export default function StreamingSweep({ selectedFormation, selectedTactic, iterations }) {
+export default function StreamingSweep({ iterations }) {
   const [sweepResults, setSweepResults] = useState(null);
   const [sweepRunning, setSweepRunning] = useState(false);
   const [sweepError, setSweepError] = useState(null);
@@ -370,8 +370,8 @@ export default function StreamingSweep({ selectedFormation, selectedTactic, iter
               </div>
               <h3>No Sweep Data</h3>
               <p>
-                Click "Run Sweep" to evaluate all {FORMATIONS.length * TACTICS.length} formation ×
-                tactic combinations and rank them by your chosen metric.
+                Click &quot;Run Sweep&quot; to evaluate all {FORMATIONS.length * TACTICS.length}{' '}
+                formation × tactic combinations and rank them by your chosen metric.
               </p>
             </div>
           )}

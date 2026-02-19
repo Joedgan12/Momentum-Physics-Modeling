@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Zap, Target, TrendingUp, Activity, ChevronRight, Play } from 'lucide-react';
+import { Zap, Target, TrendingUp, Activity, Play } from 'lucide-react';
 
 /* ── Animated number counter ── */
 function AnimatedNumber({ value, decimals = 1, suffix = '' }) {
@@ -129,8 +129,6 @@ export default function Dashboard({
   onTacticChange,
   iterations,
   onIterationsChange,
-  playbackSpeed,
-  onPlaybackSpeedChange,
 }) {
   /* Build sparkline data from momentum history */
   const sparkData =

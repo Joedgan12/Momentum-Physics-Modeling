@@ -35,13 +35,6 @@ export default function RiskAnalysis({ simResults }) {
     return 'var(--pulse)';
   };
 
-  const riskLabel = (value) => {
-    if (value >= 60) return 'CRITICAL';
-    if (value >= 40) return 'HIGH';
-    if (value >= 20) return 'MODERATE';
-    return 'LOW';
-  };
-
   return (
     <div className="page-container">
       <div className="dashboard-body">

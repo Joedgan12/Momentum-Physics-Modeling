@@ -150,7 +150,7 @@ class CalibrationValidator:
                 corr = correlation(actual_xg_list, predicted_xg_list)
             else:
                 corr = 1.0
-        except:
+        except Exception:
             corr = 1.0
 
         # Bias analysis

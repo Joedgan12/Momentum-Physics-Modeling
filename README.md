@@ -13,6 +13,7 @@ This full-stack system models **Player Momentum Units (PMUs)** — a physics-ins
 **PMU(t) = E_base + ΣEventImpact(t) + CrowdImpact(t) − Fatigue(t)**
 
 Where:
+
 - **E_base** — baseline energy from position and skill level
 - **EventImpact** — contextualised impact of match events (goals, tackles, passes, etc.)
 - **CrowdImpact** — home/away noise, heart rate variability, player experience
@@ -70,16 +71,19 @@ Visit **http://localhost:5173** in your browser.
 ## 🔌 API Endpoints
 
 ### Health & Info
+
 - `GET /api/health` — Liveness check
 - `GET /api/players?team=A` — Squad stats (optional team filter)
 - `GET /api/formations` — Available formations & tactics
 - `GET /api/events` — All event types & base impacts
 
 ### Simulation
+
 - `POST /api/simulate` — **[MAIN]** Monte Carlo scenario (500 iterations by default)
 - `POST /api/simulate/quick` — Single-match quick simulation
 
 ### Utilities
+
 - `POST /api/event` — Contextual event impact for one player
 - `POST /api/pressure` — Pressure map for multiple pressurers vs. target
 - `POST /api/fatigue` — Fatigue update (activity burst)
@@ -108,20 +112,24 @@ curl -X POST http://127.0.0.1:5000/api/simulate \
 ### Components
 
 **Sidebar** (Elite #1a0a2e)
+
 - Tab navigation: Dashboard, Matches, Players, Transfers, Statistics
 - Momentum meter (0–100 PMU)
 
 **TopBar**
+
 - Scenario selector (Baseline, Comeback, Dominant, etc.)
 - Match state badge (Leading / Tied / Losing)
 
 **Dashboard**
+
 - Hero banner with score & match status
 - 4 stat cards: Team A PMU | Team B PMU | Goal Probability | xG
 - Scenario panels: Formation picker, tactic picker, simulation button
 - Match Analysis section with lineups and pressure heatmaps
 
 **QuickInsights** (Right panel)
+
 - Top Performers — sorted by PMU
 - Recent Results — form guide with W/W/D/W/L
 - Live momentum sparkline chart (Recharts)
@@ -193,8 +201,8 @@ simulation/
     "draws": 0.26
   },
   "playerMomentum": [
-    {"name": "M. Salah", "pmu": 25.34, "position": "FWD", "consistency": 0.87},
-    {"name": "K. De Bruyne", "pmu": 23.12, "position": "MID", "consistency": 0.89}
+    { "name": "M. Salah", "pmu": 25.34, "position": "FWD", "consistency": 0.87 },
+    { "name": "K. De Bruyne", "pmu": 23.12, "position": "MID", "consistency": 0.89 }
   ],
   "elapsed_seconds": 8.23
 }
@@ -205,6 +213,7 @@ simulation/
 ## 🎨 Design System
 
 **CSS Variables**:
+
 - Sidebar: `#1a0a2e` (elite dark navy)
 - Accent: `#00e5a0` (teal)
 - Team A: `#667eea` (indigo)
@@ -249,6 +258,7 @@ python -c "from backend.momentum_sim.simulation.engine import MonteCarloEngine; 
 ## 📖 Documentation
 
 For detailed documentation, see:
+
 - `backend/momentum_sim/simulation/engine.py` — inline docstrings for all classes
 - `backend/app.py` — endpoint descriptions and request/response schemas
 
@@ -257,6 +267,7 @@ For detailed documentation, see:
 ## 🤝 Contributing
 
 Extend the system by:
+
 1. Adding new event types to `EVENT_BASE_IMPACTS` in `engine.py`
 2. Adding new formations to `FORMATION_COHERENCE`
 3. Tuning physics constants (decay rates, pressure radius, crowd alpha)
@@ -267,12 +278,14 @@ All changes are **hot-reloaded** in debug mode.
 ---
 
 **Built with React, Vite, Flask, NumPy, and physics-based momentum modeling.**
+
 - **Scenario Controls**: Formation & tactic selection
 - **Quick Insights Panel**: Top performers, recent results, form guide
 
 ### Simulation Engine
 
 Real-time PMU calculation:
+
 - Baseline energy (position-dependent)
 - Event impact computation with context modifiers
 - Crowd influence modeling
@@ -281,6 +294,7 @@ Real-time PMU calculation:
 - Monte Carlo outcome distributions (1000 iterations)
 
 ### Visualization
+
 - Momentum bar charts with team pressure streams
 - Player PMU rankings with visual bars
 - Probability distributions (goal likelihood, momentum evolution)
@@ -314,6 +328,7 @@ src/
 ## Design System
 
 **Color Palette**:
+
 - Sidebar: `#1a0a2e` (dark purple)
 - Accent: `#00e5a0` (cyan green)
 - Cards: `#ffffff` (white)
@@ -321,11 +336,13 @@ src/
 - Text Secondary: `#a0aec0` (light gray)
 
 **Typography**:
+
 - Font: Inter (Google Fonts)
 - Weight: 300-800
 - Sizes: 10px-28px by component
 
 **Spacing**:
+
 - Base unit: 4px
 - Common gaps: 8px, 12px, 16px, 20px, 24px
 
@@ -334,7 +351,7 @@ src/
 ### PMU Computation
 
 ```javascript
-PMU = BaseEnergy + EventImpact + CrowdImpact - Fatigue
+PMU = BaseEnergy + EventImpact + CrowdImpact - Fatigue;
 ```
 
 **Event Impact Table**:
@@ -347,6 +364,7 @@ PMU = BaseEnergy + EventImpact + CrowdImpact - Fatigue
 | Goal | +15 |
 
 ### Context Modifiers
+
 - **Position Factor**: DEF ×1.0, MID ×1.0, FWD ×1.3
 - **Game State**: Losing ×1.2, Tied ×1.0, Leading ×0.9
 - **Zone**: Attacking third ×1.5, Middle ×1.0, Defensive ×0.8
@@ -361,12 +379,13 @@ PressureImpact = PMU × FormationCoherence × exp(-Distance/6) × ConeFactor
 ### Momentum Aggregation
 
 ```javascript
-TeamMomentum = Σ(PMU_Possession) + Σ(PMU_OffBall)
+TeamMomentum = Σ(PMU_Possession) + Σ(PMU_OffBall);
 ```
 
 ## State Management
 
 React hooks manage:
+
 - `scenario`: Currently selected scenario
 - `simRunning`: Active simulation status
 - `simResults`: Latest simulation output

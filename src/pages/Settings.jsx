@@ -1,17 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-  ChevronDown,
-  Moon,
-  Sun,
-  Volume2,
-  Eye,
-  Palette,
-  Bell,
-  Zap,
-  Save,
-  RotateCcw,
-  X,
-} from 'lucide-react';
+import { Moon, Sun, Volume2, Eye, Palette, Bell, Zap, Save, RotateCcw, X } from 'lucide-react';
 
 export default function Settings({ onClose }) {
   const [settings, setSettings] = useState({

@@ -18,7 +18,6 @@ export function getPlayerPhotoUrl(playerName, source = 'placeholder') {
   const firstName = nameParts[0];
 
   // Multiple sources for player photos
-  const encodedName = encodeURIComponent(`${firstName} ${lastName}`);
 
   switch (source) {
     case 'sofascore':
@@ -35,10 +34,11 @@ export function getPlayerPhotoUrl(playerName, source = 'placeholder') {
       // Football Reference style
       return `https://fbref.com/req/202401/scrapfly/images/players/${lastName.toLowerCase()}.jpg`;
 
-    case 'fluentui':
+    case 'fluentui': {
       // Use Fluent UI avatar with initials as fallback
       const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
       return getAvatarInitials(initials);
+    }
 
     default:
       return getPlaceholderPhoto();
@@ -163,8 +163,6 @@ export async function fetchPlayerPhotoWithFallback(
   playerName,
   sources = ['sofascore', 'transfermarkt', 'placeholder'],
 ) {
-  let lastError = null;
-
   for (const source of sources) {
     try {
       const url = getPlayerPhotoUrl(playerName, source);
@@ -177,7 +175,6 @@ export async function fetchPlayerPhotoWithFallback(
       // For cross-origin, just return the URL (browser will handle 404)
       return url;
     } catch (error) {
-      lastError = error;
       continue;
     }
   }

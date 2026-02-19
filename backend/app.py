@@ -55,13 +55,14 @@ from middleware import (
     validate_tags,
 )
 
+from typing import Dict
+
 try:
     from reportlab.lib import colors
-    from reportlab.lib.pagesizes import A4, letter
+    from reportlab.lib.pagesizes import letter
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import inch
     from reportlab.platypus import (
-        KeepTogether,
         PageBreak,
         Paragraph,
         SimpleDocTemplate,
@@ -167,9 +168,7 @@ def auto_train_policy():
 
 
 # Start auto-training in background thread (non-blocking)
-import threading as _threading
-
-_training_thread = _threading.Thread(target=auto_train_policy, daemon=True)
+_training_thread = threading.Thread(target=auto_train_policy, daemon=True)
 _training_thread.start()
 
 # Initialize calibration validator and load synthetic dataset
@@ -237,7 +236,6 @@ def compute_analytical_layers(result: dict, config: dict) -> dict:
     avg_pmu_a = result.get("avgPMU_A", 20.0)
     avg_pmu_b = result.get("avgPMU_B", 20.0)
     goal_prob = result.get("goalProbability", 0.01)
-    xg = result.get("xg", 0.03)
     xg_a = result.get("xg_a", 0.02)
     xg_b = result.get("xg_b", 0.01)
     outcome_dist = result.get("outcomeDistribution", {})
@@ -2675,7 +2673,7 @@ def validate_cross_match():
                     engine = MonteCarloEngine(config)
                     result = engine.run()
                     return result.get("xg", 0.03)
-                except:
+                except Exception:
                     return 0.03
 
             predictor = monte_carlo_predictor
@@ -2758,7 +2756,7 @@ def calibrate():
                     engine = MonteCarloEngine(config)
                     result = engine.run()
                     return result.get("xg", 0.03)
-                except:
+                except Exception:
                     return 0.03
 
         else:

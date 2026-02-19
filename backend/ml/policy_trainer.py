@@ -20,7 +20,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 
 try:
-    import tensorflow as tf
     from tensorflow import keras
     from tensorflow.keras import layers
 
@@ -240,7 +239,6 @@ class PolicyTrainer:
         if reward_fn is None:
             # Enhanced reward function with coaching principles
             def coaching_reward(state, action):
-                formation_id = action // 4
                 tactic_id = action % 4
 
                 # Base reward (original tactical logic)
@@ -801,7 +799,11 @@ def train_policy_async(trainer: PolicyTrainer, emit_fn=None) -> Dict[str, Any]:
     emit_fn: callable(event_name, data) for WebSocket progress updates
     """
     if emit_fn is None:
-        emit_fn = lambda name, data: None
+
+        def _noop_emit(name, data):
+            return None
+
+        emit_fn = _noop_emit
 
     try:
         # Generate and train

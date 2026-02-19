@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Brain, Zap, AlertCircle, Loader, Cpu, TrendingUp, Gauge, Activity } from 'lucide-react';
+import { Brain, Zap, AlertCircle, Cpu, TrendingUp, Gauge, Activity } from 'lucide-react';
 import io from 'socket.io-client';
 
 export default function AICoach({ matchState = null, onTacticRecommended = null }) {

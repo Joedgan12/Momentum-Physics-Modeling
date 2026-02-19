@@ -14,14 +14,6 @@ const EVENT_IMPACTS = {
   foul: -3,
 };
 
-// Event decay rates (PMU units per second)
-const DECAY_RATES = {
-  tackle: 0.15,
-  goal_conceded: 0.25,
-  pass: 0.05,
-  default: 0.08,
-};
-
 // Player resilience factors (0-1, momentum persistence)
 const RESILIENCE = {
   veteran: 0.9,

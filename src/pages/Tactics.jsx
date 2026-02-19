@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, TrendingUp, Activity } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import AICoach from '../components/AICoach';
 import QuickInsights from '../components/QuickInsights';
 
