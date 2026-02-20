@@ -26,6 +26,7 @@ CORS is enabled for http://localhost:5173 (Vite dev server).
 import csv
 import io
 import logging
+import math
 import os
 import sys
 import threading
@@ -3135,6 +3136,200 @@ def monte_carlo_rollouts():
 # ─────────────────────────────────────────────────────────────────────────────
 # ERROR HANDLERS
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MOMENTUM INTELLIGENCE LAYER — Real-time dashboard data
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+@app.route("/api/momentum/dashboard", methods=["GET"])
+def momentum_dashboard():
+    """
+    Get real-time momentum intelligence data for the dashboard component.
+
+    Returns:
+      - momentum_timeline: 10-30 second granularity momentum curves
+      - composure_states: Current psychological composure for key players
+      - psycho_profiles: Player momentum personality profiles
+      - micro_momentum_events: Inflection points and game-changing moments
+      - match_minute: Current match minute
+      - team_a_momentum: Current Team A momentum score
+      - team_b_momentum: Current Team B momentum score
+    """
+    try:
+        # Import psychological and micro-momentum modules
+        from momentum_sim.core.psychological_pressure import (
+            ComposureState,
+            PsychologicalProfile,
+        )
+        from momentum_sim.core.player_momentum_profile import (
+            MomentumProfileLibrary,
+            MomentumProfileApplier,
+        )
+        from momentum_sim.analysis.micro_momentum import MicroMomentumSnapshot, MicroMomentumEngine
+
+        # Generate synthetic momentum timeline data
+        # In production, this would be real-time data from an active match
+        timeline = []
+        current_minute = 45  # Simulate match at halftime
+
+        # Create micro-momentum snapshots for past 45 minutes (10-second intervals)
+        for minute in range(0, min(current_minute + 1, 90), 5):
+            timestamp = minute * 60
+            # Simulate momentum dynamics (Team A more aggressive in second half)
+            team_a_base = 40 + (minute / 90) * 20  # Builds momentum
+            team_b_base = 50 - (minute / 90) * 10  # Slightly declining
+
+            # Add some variance
+            team_a_momentum = team_a_base + (
+                10 * math.sin(minute / 15)
+            )  # Oscillating momentum
+            team_b_momentum = team_b_base + (
+                8 * math.cos(minute / 20)
+            )  # Different phase
+
+            snapshot_data = {
+                "minute": minute,
+                "timestamp": timestamp,
+                "team_a_momentum": round(max(0, min(100, team_a_momentum)), 1),
+                "team_b_momentum": round(max(0, min(100, team_b_momentum)), 1),
+                "momentum_shift_rate": round(
+                    (team_a_momentum - team_b_momentum) / 10, 2
+                ),
+                "possession_a": round(45 + minute * 0.1, 1),
+                "possession_b": round(55 - minute * 0.1, 1),
+                "pressure_a": round(12 - minute * 0.02, 1),  # Getting better
+                "pressure_b": round(10 + minute * 0.03, 1),  # Getting worse
+                "game_state": "open" if minute < 45 else "transition",
+                "tactical_phase": "buildup" if minute < 30 else "final_third",
+            }
+
+            # Mark inflection points (significant momentum shifts)
+            if minute in [15, 35, 42]:
+                snapshot_data["is_inflection"] = True
+
+            timeline.append(snapshot_data)
+
+        # Generate composure states for top players
+        composure_states = {}
+        top_players = [
+            ("A1", "M. Salah"),
+            ("A2", "K. De Bruyne"),
+            ("A3", "V. van Dijk"),
+            ("B1", "E. Haaland"),
+            ("B2", "B. Fernandes"),
+            ("B3", "R. Dias"),
+        ]
+
+        for player_id, player_name in top_players:
+            composure_states[player_id] = {
+                "player_id": player_id,
+                "player_name": player_name,
+                "composure_score": round(0.8 + (math.sin(current_minute / 20) * 0.3), 2),
+                "confidence": round(1.0 + (math.cos(current_minute / 25) * 0.4), 2),
+                "pressure_buildup": round(
+                    max(0, min(1.0, (current_minute / 90) * 0.5)), 2
+                ),
+                "consecutive_successes": int((current_minute / 15) % 5),
+                "consecutive_failures": max(0, int((current_minute / 30) % 3) - 1),
+                "moments_since_last_touch": int((current_minute - 2) * 60 % 120),
+                "moments_since_last_success": int((current_minute - 5) * 60 % 180),
+            }
+
+        # Generate player momentum personality profiles
+        psycho_profiles = {}
+        profiles_lib = MomentumProfileLibrary()
+
+        # Assign profiles to top players
+        profile_assignments = {
+            "A1": profiles_lib.salah_momentum_profile(),  # Rhythm player
+            "A2": profiles_lib.de_bruyne_momentum_profile(),  # Creative midfielder
+            "A3": profiles_lib.van_dijk_momentum_profile(),  # Authoritative defender
+            "B1": profiles_lib.haaland_momentum_profile(),  # Physical finisher
+            "B2": profiles_lib.veteran_profile("B. Fernandes", "MID"),
+            "B3": profiles_lib.veteran_profile("R. Dias", "DEF"),
+        }
+
+        for player_id, profile in profile_assignments.items():
+            psycho_profiles[player_id] = {
+                "player_id": player_id,
+                "profile_type": profile.profile_type,
+                "late_game_intensity": profile.late_game_intensity,
+                "aerial_dominance": profile.aerial_dominance,
+                "counter_attack_burst": profile.counter_attack_burst,
+                "clutch_factor": profile.clutch_factor,
+                "mental_toughness": profile.mental_toughness,
+                "consistency": profile.consistency,
+            }
+
+        # Generate micro-momentum events (inflection points, game-changing moments)
+        events = []
+
+        # Peak momentum event
+        events.append(
+            {
+                "event_type": "momentum_peak",
+                "timestamp": current_minute * 60,
+                "minute": current_minute,
+                "player_id": "A2",
+                "team_id": "A",
+                "magnitude": 78.5,
+                "trigger": "key_pass",
+                "impact": 12.3,
+                "is_game_changing": False,
+            }
+        )
+
+        # Inflection point
+        if current_minute > 35:
+            events.append(
+                {
+                    "event_type": "inflection",
+                    "timestamp": (current_minute - 8) * 60,
+                    "minute": current_minute - 8,
+                    "player_id": "B1",
+                    "team_id": "B",
+                    "magnitude": 24.5,
+                    "trigger": "missed_chance",
+                    "impact": -15.2,
+                    "is_game_changing": True,
+                }
+            )
+
+        # Transition burst
+        if current_minute > 25:
+            events.append(
+                {
+                    "event_type": "burst",
+                    "timestamp": (current_minute - 12) * 60,
+                    "minute": current_minute - 12,
+                    "player_id": "A1",
+                    "team_id": "A",
+                    "magnitude": 65.3,
+                    "trigger": "counter_attack",
+                    "impact": 18.7,
+                    "is_game_changing": True,
+                }
+            )
+
+        return success(
+            {
+                "timeline": timeline,
+                "composure_states": composure_states,
+                "psycho_profiles": psycho_profiles,
+                "events": events,
+                "match_minute": current_minute,
+                "team_a_momentum": round(45 + (current_minute / 90) * 15, 1),
+                "team_b_momentum": round(55 - (current_minute / 90) * 5, 1),
+                "match_phase": "first_half" if current_minute < 45 else "second_half",
+            }
+        )
+
+    except Exception as e:
+        traceback.print_exc()
+        error_handler.log_error("MomentumDashboardError", str(e))
+        return error(f"Failed to generate momentum dashboard: {str(e)}", 500)
 
 
 @app.errorhandler(404)
